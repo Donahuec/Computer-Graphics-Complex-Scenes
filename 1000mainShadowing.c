@@ -329,7 +329,6 @@ int initializeCameraLight(void) {
 int initializeShaderProgram(void) {
 	GLchar vertexCode[] = "\
 		#version 140\n\
-		uniform mat4 viewing;\
 		uniform mat4 modeling;\
 		uniform mat4 modelingCamera;\
 		uniform mat4 viewingSdwA;\
@@ -428,7 +427,6 @@ int initializeShaderProgram(void) {
 		attrLocs[0] = glGetAttribLocation(program, "position");
 		attrLocs[1] = glGetAttribLocation(program, "texCoords");
 		attrLocs[2] = glGetAttribLocation(program, "normal");
-		viewingLoc = glGetUniformLocation(program, "viewing");
 		modelingLoc = glGetUniformLocation(program, "modeling");
 		modelingCameraLoc = glGetUniformLocation(program, "modelingCamera");
 		unifLocs[0] = glGetUniformLocation(program, "specular");
@@ -463,21 +461,21 @@ void render(void) {
 	GLint sdwTextureLocs[1] = {-1};
 	shadowMapRender(&sdwMapA, &sdwProg, &lightA, -100.0, -1.0);
 	sceneRender(&nodeH, identity, identity, sdwProg.modelingLoc, sdwProg.modelingLoc, 0, NULL, NULL, 1, 
-		sdwTextureLocs);
+		sdwTextureLocs, -1);
 	shadowMapUnrender();
 	shadowMapRender(&sdwMapB, &sdwProg, &lightB, -100.0, -1.0);
 	sceneRender(&nodeH, identity, identity, sdwProg.modelingLoc, sdwProg.modelingLoc, 0, NULL, NULL, 1, 
-		sdwTextureLocs);
+		sdwTextureLocs, -1);
 	shadowMapUnrender();
 	/* Finish preparing the shadow maps, restore the viewport, and begin to 
 	render the scene. */
 	glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glUseProgram(program);
-	camRender(&cam, viewingLoc);
-	GLfloat vec[3];
-	vecOpenGL(3, cam.translation, vec);
-	glUniform3fv(camPosLoc, 1, vec);
+	// camRender(&cam, viewingLoc);
+	// GLfloat vec[3];
+	// vecOpenGL(3, cam.translation, vec);
+	// glUniform3fv(camPosLoc, 1, vec);
 	/* For each light, we have to connect it to the shader program, as always. 
 	For each shadow-casting light, we must also connect its shadow map. */
 	lightRender(&lightA, lightPosLoc[0], lightColLoc[0], lightAttLoc[0], lightDirLoc[0], 
@@ -488,7 +486,7 @@ void render(void) {
 	shadowRender(&sdwMapB, viewingSdwLoc[1], GL_TEXTURE7, 7, textureSdwLoc[1]);
 	GLuint unifDims[1] = {3};
 	sceneRender(&rootNode, identity, identity, modelingLoc, modelingCameraLoc, 1, unifDims, unifLocs, 0, 
-		textureLocs);
+		textureLocs, camPosLoc);
 
 	shadowUnrender(GL_TEXTURE6);
 	shadowUnrender(GL_TEXTURE7);

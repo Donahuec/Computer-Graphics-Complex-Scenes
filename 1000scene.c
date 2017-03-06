@@ -260,8 +260,9 @@ void sceneSetUniforms(sceneNode *node, GLuint unifNum, GLuint unifDims[], GLint 
 }
 void sceneRenderCamera(sceneNode *node, GLdouble parent[4][4], 
 		GLdouble parentCam[4][4], GLint modelingLoc, GLint modelingCamLoc,
-		GLuint unifNum, GLuint unifDims[], GLint unifLocs[], double m[4][4], double mC[4][4]){
-	GLfloat viewing[4][4];
+		GLuint unifNum, GLuint unifDims[], GLint unifLocs[], double m[4][4], double mC[4][4],
+		GLint camPosLoc){
+	GLfloat viewing[4][4], vec[3];
 	double camInv[4][4], proj[4][4], projCamInv[4][4];
 	mat44InverseIsometry(node->cam->rotation, node->cam->translation, camInv);
 	if(node->cam->projectionType==camORTHOGRAPHIC){
@@ -278,6 +279,8 @@ void sceneRenderCamera(sceneNode *node, GLdouble parent[4][4],
 	mat44Identity(m);
 	mat44OpenGL(projCamInv, viewing);
 	glUniformMatrix4fv(modelingLoc, 1, GL_FALSE, (GLfloat *)viewing);
+	vecOpenGL(3, node->cam->translation, vec);
+	glUniform3fv(camPosLoc, 1, vec);
 }
 
 void sceneRenderTransformation(sceneNode *node, GLdouble parent[4][4], GLdouble parentCam[4][4], 
@@ -325,13 +328,13 @@ modelingLoc. The attribute information exists to be passed to meshGLRender. The
 uniform information is analogous, but sceneRender loads it, not meshGLRender. */
 void sceneRender(sceneNode *node, GLdouble parent[4][4], GLdouble parentCam[4][4], 
 		GLint modelingLoc, GLint modelingCamLoc, GLuint unifNum, GLuint unifDims[], 
-		GLint unifLocs[], GLuint index, GLint textureLocs[]) {
+		GLint unifLocs[], GLuint index, GLint textureLocs[], GLint camPosLoc) {
 	
 	double m[4][4], mC[4][4];
 	/* Updated */
 	if (node->nodeType==sceneCAMERA){
 		sceneRenderCamera(node, parent, parentCam, modelingLoc, modelingCamLoc, unifNum, 
-			unifDims, unifLocs, m, mC);
+			unifDims, unifLocs, m, mC, camPosLoc);
 	} else if (node->nodeType==sceneTRANSFORMATION){
 		sceneRenderTransformation(node, parent, parentCam, modelingLoc, modelingCamLoc, unifNum, 
 			unifDims, unifLocs, m, mC);
@@ -346,11 +349,11 @@ void sceneRender(sceneNode *node, GLdouble parent[4][4], GLdouble parentCam[4][4
 	/* Render the mesh, the children, and the younger siblings. */
 	if(node->firstChild != NULL){
 		sceneRender(node->firstChild, m, mC, modelingLoc, modelingCamLoc,
-			unifNum, unifDims, unifLocs, index, textureLocs);
+			unifNum, unifDims, unifLocs, index, textureLocs, camPosLoc);
 	}
 	if(node->nextSibling != NULL){
 		sceneRender(node->nextSibling, parent, parentCam, modelingLoc, modelingCamLoc,
-			unifNum, unifDims, unifLocs, index, textureLocs);
+			unifNum, unifDims, unifLocs, index, textureLocs, camPosLoc);
 	}
 	// if(node->nodeType==sceneGEOMETRY){
 	// 	sceneUnrenderTextures(node, textureLocs);
