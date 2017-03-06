@@ -27,6 +27,9 @@ struct sceneNode {
 	sceneNode *firstChild, *nextSibling;
 	GLuint texNum;
 	texTexture **tex;
+
+	// Camera node
+	camCamera *cam;
 };
 
 /* Initializes a sceneNode struct. The translation and rotation are initialized to trivial values. The user must remember to call sceneDestroy or 
@@ -155,6 +158,10 @@ void sceneSetTranslation(sceneNode *node, GLdouble transl[3]) {
 	vecCopy(3, transl, node->translation);
 }
 
+/* Sets the node's camera. */
+void sceneSetCamera(sceneNode *node, camCamera *cam) {
+	node->cam = cam;
+}
 /* Sets the scene's mesh. */
 void sceneSetMesh(sceneNode *node, meshGLMesh *mesh) {
 	node->meshGL = mesh;
@@ -212,36 +219,23 @@ void sceneRemoveChild(sceneNode *node, sceneNode *child) {
 		sceneRemoveSibling(node->firstChild, child);
 }
 
-
-/* Renders the node, its younger siblings, and their descendants. parent is the 
-modeling matrix at the parent of the node. If the node has no parent, then this 
-matrix is the 4x4 identity matrix. Loads the modeling transformation into 
-modelingLoc. The attribute information exists to be passed to meshGLRender. The 
-uniform information is analogous, but sceneRender loads it, not meshGLRender. */
-void sceneRender(sceneNode *node, GLdouble parent[4][4], GLint modelingLoc, 
-		GLuint unifNum, GLuint unifDims[], GLint unifLocs[], 
-		GLuint index, GLint textureLocs[]) {
+void sceneRenderTextures(sceneNode *node, GLint textureLocs[]){
 	GLenum units[9]={GL_TEXTURE0, GL_TEXTURE1, GL_TEXTURE2, GL_TEXTURE3, GL_TEXTURE4, 
 					 GL_TEXTURE5, GL_TEXTURE6, GL_TEXTURE7, GL_TEXTURE8};
-	/* Set the uniform modeling matrix. */
-	GLfloat model[4][4];
-	double mHold[4][4];
-	double m[4][4];
-	/* Updated */
-	if(node->nodeType==sceneTRANSFORMATION){
-		mat44Isometry(node->rotation, node->translation, mHold);
-		mat444Multiply(parent, mHold, m);
-		mat44OpenGL(m, model);
+	for(int k=0;k<node->texNum; k++){
+			texRender(node->tex[k], units[k], k, textureLocs[k]);
 	}
-	else {
-		mat44Disect(parent, node->rotation, node->translation);
-		mat44OpenGL(parent, model);
-		mat44Copy(parent, m);
+}
+
+void sceneUnrenderTextures(sceneNode *node, GLint textureLocs[]){
+	GLenum units[9]={GL_TEXTURE0, GL_TEXTURE1, GL_TEXTURE2, GL_TEXTURE3, GL_TEXTURE4, 
+					 GL_TEXTURE5, GL_TEXTURE6, GL_TEXTURE7, GL_TEXTURE8};
+	for(int k=0;k<node->texNum; k++){
+			texUnrender(node->tex[k], units[k]);
 	}
-	/* Updated */
-	glUniformMatrix4fv(modelingLoc, 1, GL_FALSE, (GLfloat *)model);
-	
-	/* Set the other uniforms. The casting from double to float is annoying. */
+}
+
+void sceneSetUniforms(sceneNode *node, GLuint unifNum, GLuint unifDims[], GLint unifLocs[]){
 	int unifCount=0;
 	for(int i=0; i<unifNum; i++){
 		if(unifDims[i]==1){
@@ -263,28 +257,104 @@ void sceneRender(sceneNode *node, GLdouble parent[4][4], GLint modelingLoc,
 		}
 		unifCount+=unifDims[i];
 	}
-	/* Updated */
-	if(node->nodeType==sceneGEOMETRY){
-		for(int k=0;k<node->texNum; k++){
-			texRender(node->tex[k], units[k], k, textureLocs[k]);
-		}
-		meshGLRender(node->meshGL, index);
+}
+void sceneRenderCamera(sceneNode *node, GLdouble parent[4][4], 
+		GLdouble parentCam[4][4], GLint modelingLoc, GLint modelingCamLoc,
+		GLuint unifNum, GLuint unifDims[], GLint unifLocs[], double m[4][4], double mC[4][4]){
+	GLfloat viewing[4][4];
+	double camInv[4][4], proj[4][4], projCamInv[4][4];
+	mat44InverseIsometry(node->cam->rotation, node->cam->translation, camInv);
+	if(node->cam->projectionType==camORTHOGRAPHIC){
+		mat44Orthographic(node->cam->projection[camPROJL], node->cam->projection[camPROJR],
+			node->cam->projection[camPROJB], node->cam->projection[camPROJT], 
+			node->cam->projection[camPROJF], node->cam->projection[camPROJN], proj);
+	} else {
+		mat44Perspective(node->cam->projection[camPROJL], node->cam->projection[camPROJR],
+	 		node->cam->projection[camPROJB], node->cam->projection[camPROJT], 
+	 		node->cam->projection[camPROJF], node->cam->projection[camPROJN], proj);
 	}
+	mat444Multiply(proj, camInv, projCamInv);
+	mat44Copy(projCamInv, mC);
+	mat44Identity(m);
+	mat44OpenGL(projCamInv, viewing);
+	glUniformMatrix4fv(modelingLoc, 1, GL_FALSE, (GLfloat *)viewing);
+}
+
+void sceneRenderTransformation(sceneNode *node, GLdouble parent[4][4], GLdouble parentCam[4][4], 
+		GLint modelingLoc, GLint modelingCamLoc, GLuint unifNum, GLuint unifDims[], 
+		GLint unifLocs[], double m[4][4], double mC[4][4]) {
+	GLfloat model[4][4], modelCam[4][4];
+	double mHold[4][4], mCHold[4][4];
+
+	mat44Isometry(node->rotation, node->translation, mHold);
+	mat44Copy(mHold, mCHold);
+	mat444Multiply(parent, mHold, m);
+	mat44OpenGL(m, model);
+	mat444Multiply(parentCam, mCHold, mC);
+	mat44OpenGL(mC, modelCam);
+
+	glUniformMatrix4fv(modelingLoc, 1, GL_FALSE, (GLfloat *)model);
+	glUniformMatrix4fv(modelingCamLoc, 1, GL_FALSE, (GLfloat *)modelCam);
+}
+
+void sceneRenderGeometry(sceneNode *node, GLdouble parent[4][4], GLdouble parentCam[4][4], 
+		GLint modelingLoc, GLint modelingCamLoc, GLuint unifNum, GLuint unifDims[], 
+		GLint unifLocs[], GLuint index, GLint textureLocs[], double m[4][4], double mC[4][4]){
+	GLfloat model[4][4], modelCam[4][4];
+	double mHold[4][4], mCHold[4][4];
+	
+
+	mat44Disect(parent, node->rotation, node->translation);
+	mat44OpenGL(parent, model);
+	mat44Copy(parent, m);
+	mat44OpenGL(parentCam, modelCam);
+	mat44Copy(parentCam, mC);
+	glUniformMatrix4fv(modelingLoc, 1, GL_FALSE, (GLfloat *)model);
+	glUniformMatrix4fv(modelingCamLoc, 1, GL_FALSE, (GLfloat *)modelCam);
+
+	sceneRenderTextures(node, textureLocs);
+	meshGLRender(node->meshGL, index);
+	sceneUnrenderTextures(node, textureLocs);
+}
+
+
+/* Renders the node, its younger siblings, and their descendants. parent is the 
+modeling matrix at the parent of the node. If the node has no parent, then this 
+matrix is the 4x4 identity matrix. Loads the modeling transformation into 
+modelingLoc. The attribute information exists to be passed to meshGLRender. The 
+uniform information is analogous, but sceneRender loads it, not meshGLRender. */
+void sceneRender(sceneNode *node, GLdouble parent[4][4], GLdouble parentCam[4][4], 
+		GLint modelingLoc, GLint modelingCamLoc, GLuint unifNum, GLuint unifDims[], 
+		GLint unifLocs[], GLuint index, GLint textureLocs[]) {
+	
+	double m[4][4], mC[4][4];
+	/* Updated */
+	if (node->nodeType==sceneCAMERA){
+		sceneRenderCamera(node, parent, parentCam, modelingLoc, modelingCamLoc, unifNum, 
+			unifDims, unifLocs, m, mC);
+	} else if (node->nodeType==sceneTRANSFORMATION){
+		sceneRenderTransformation(node, parent, parentCam, modelingLoc, modelingCamLoc, unifNum, 
+			unifDims, unifLocs, m, mC);
+	} else {
+		sceneRenderGeometry(node, parent, parentCam, modelingLoc, modelingCamLoc, unifNum, 
+			unifDims, unifLocs, index, textureLocs, m, mC);
+	}
+	
+	/* Set the other uniforms.*/
+	sceneSetUniforms(node, unifNum, unifDims, unifLocs);
 	
 	/* Render the mesh, the children, and the younger siblings. */
 	if(node->firstChild != NULL){
-		sceneRender(node->firstChild, m, modelingLoc, 
+		sceneRender(node->firstChild, m, mC, modelingLoc, modelingCamLoc,
 			unifNum, unifDims, unifLocs, index, textureLocs);
 	}
 	if(node->nextSibling != NULL){
-		sceneRender(node->nextSibling, parent, modelingLoc, 
+		sceneRender(node->nextSibling, parent, parentCam, modelingLoc, modelingCamLoc,
 			unifNum, unifDims, unifLocs, index, textureLocs);
 	}
-	if(node->nodeType==sceneGEOMETRY){
-		for(int k=0;k<node->texNum; k++){
-			texUnrender(node->tex[k], units[k]);
-		}
-	}
+	// if(node->nodeType==sceneGEOMETRY){
+	// 	sceneUnrenderTextures(node, textureLocs);
+	// }
 	/* Updated */
 }
 

@@ -46,7 +46,7 @@ lightLight lightA, lightB;
 shadowMap sdwMapA, sdwMapB;
 /* The main shader program has extra hooks for shadowing. */
 GLuint program;
-GLint viewingLoc, modelingLoc;
+GLint viewingLoc, modelingLoc, modelingCameraLoc;
 GLint unifLocs[1], textureLocs[1];
 GLint attrLocs[3];
 GLint lightPosLoc[2], lightColLoc[2], lightAttLoc[2], lightDirLoc[2], lightCosLoc[2];
@@ -188,7 +188,6 @@ int initializeScene(void) {
 		return 6;
 	if (meshInitializeDissectedLandscape(&mesh, &meshLand, M_PI / 3.0, 1) != 0)
 		return 7;
-	/* There are now two VAOs per mesh. */
 	meshGLInitialize(&meshH, &mesh, 3, attrDims, 2);
 	meshGLVAOInitialize(&meshH, 0, attrLocs);
 	meshGLVAOInitialize(&meshH, 1, sdwProg.attrLocs);
@@ -226,7 +225,6 @@ int initializeScene(void) {
 	meshGLVAOInitialize(&meshL, 0, attrLocs);
 	meshGLVAOInitialize(&meshL, 1, sdwProg.attrLocs);
 	meshDestroy(&mesh);
-	/* Updated */
 	if (sceneInitializeGeometry(&nodeW, 3, 1, &meshW, NULL, NULL) != 0)
 		return 14;
 	if (sceneInitializeGeometry(&nodeL, 3, 1, &meshL, NULL, NULL) != 0)
@@ -243,14 +241,13 @@ int initializeScene(void) {
 		return 13;
 	if (sceneInitializeGeometry(&nodeH, 3, 1, &meshH, &nodeV, NULL) != 0)
 		return 12;
-	if (sceneInitializeTransformation(&rootNode, 
+	if (sceneInitializeCamera(&rootNode, 
 		3, NULL, NULL, &nodeH, NULL) != 0)
 		return 11; 
 	GLdouble transl[3] = {40.0, 28.0, 5.0};
 	sceneSetTranslation(&transformationNodeT, transl);
 	vecSet(3, transl, 0.0, 0.0, 7.0);
 	sceneSetTranslation(&transformationNodeL, transl);
-	/* Updated */
 	GLdouble unif[3] = {0.0, 0.0, 0.0};
 	sceneSetUniform(&nodeH, unif);
 	sceneSetUniform(&nodeV, unif);
@@ -286,9 +283,7 @@ void destroyScene(void) {
 	meshGLDestroy(&meshW);
 	meshGLDestroy(&meshT);
 	meshGLDestroy(&meshL);
-	/* Updated */
 	sceneDestroyRecursively(&rootNode);
-	/* Updated */
 }
 
 /* Returns 0 on success, non-zero on failure. Warning: If initialization fails 
@@ -299,6 +294,7 @@ int initializeCameraLight(void) {
     GLdouble vec[3] = {30.0, 30.0, 5.0};
 	camSetControls(&cam, camPERSPECTIVE, M_PI / 6.0, 10.0, 768.0, 768.0, 130.0, 
 		1.3, -2.2, vec);
+	sceneSetCamera(&rootNode, &cam);
 	lightSetType(&lightA, lightSPOT);
 	lightSetType(&lightB, lightSPOT);
 
@@ -335,6 +331,7 @@ int initializeShaderProgram(void) {
 		#version 140\n\
 		uniform mat4 viewing;\
 		uniform mat4 modeling;\
+		uniform mat4 modelingCamera;\
 		uniform mat4 viewingSdwA;\
 		uniform mat4 viewingSdwB;\
 		in vec3 position;\
@@ -352,7 +349,7 @@ int initializeShaderProgram(void) {
 				0.0, 0.0, 0.5, 0.0, \
 				0.5, 0.5, 0.5, 1.0);\
 			vec4 worldPos = modeling * vec4(position, 1.0);\
-			gl_Position = viewing * worldPos;\
+			gl_Position = modelingCamera * vec4(position, 1.0);\
 			fragSdwA = scaleBias * viewingSdwA * worldPos;\
 			fragSdwB = scaleBias * viewingSdwB * worldPos;\
 			fragPos = vec3(worldPos);\
@@ -433,6 +430,7 @@ int initializeShaderProgram(void) {
 		attrLocs[2] = glGetAttribLocation(program, "normal");
 		viewingLoc = glGetUniformLocation(program, "viewing");
 		modelingLoc = glGetUniformLocation(program, "modeling");
+		modelingCameraLoc = glGetUniformLocation(program, "modelingCamera");
 		unifLocs[0] = glGetUniformLocation(program, "specular");
 		textureLocs[0] = glGetUniformLocation(program, "texture0");
 		camPosLoc = glGetUniformLocation(program, "camPos");
@@ -464,11 +462,11 @@ void render(void) {
 	uniforms and textures. */
 	GLint sdwTextureLocs[1] = {-1};
 	shadowMapRender(&sdwMapA, &sdwProg, &lightA, -100.0, -1.0);
-	sceneRender(&nodeH, identity, sdwProg.modelingLoc, 0, NULL, NULL, 1, 
+	sceneRender(&nodeH, identity, identity, sdwProg.modelingLoc, sdwProg.modelingLoc, 0, NULL, NULL, 1, 
 		sdwTextureLocs);
 	shadowMapUnrender();
 	shadowMapRender(&sdwMapB, &sdwProg, &lightB, -100.0, -1.0);
-	sceneRender(&nodeH, identity, sdwProg.modelingLoc, 0, NULL, NULL, 1, 
+	sceneRender(&nodeH, identity, identity, sdwProg.modelingLoc, sdwProg.modelingLoc, 0, NULL, NULL, 1, 
 		sdwTextureLocs);
 	shadowMapUnrender();
 	/* Finish preparing the shadow maps, restore the viewport, and begin to 
@@ -489,11 +487,9 @@ void render(void) {
 		lightCosLoc[1]);
 	shadowRender(&sdwMapB, viewingSdwLoc[1], GL_TEXTURE7, 7, textureSdwLoc[1]);
 	GLuint unifDims[1] = {3};
-	/* Updated */
-	sceneRender(&rootNode, identity, modelingLoc, 1, unifDims, unifLocs, 0, 
+	sceneRender(&rootNode, identity, identity, modelingLoc, modelingCameraLoc, 1, unifDims, unifLocs, 0, 
 		textureLocs);
-	/* Updated */
-	/* For each shadow-casting light, turn it off when finished rendering. */
+
 	shadowUnrender(GL_TEXTURE6);
 	shadowUnrender(GL_TEXTURE7);
 }
