@@ -291,9 +291,6 @@ midway through, then does not properly deallocate all resources. But that's
 okay, because the program terminates almost immediately after this function 
 returns. */
 int initializeCameraLight(void) {
-    GLdouble vec[3] = {30.0, 30.0, 5.0};
-	camSetControls(&cam, camPERSPECTIVE, M_PI / 6.0, 10.0, 768.0, 768.0, 130.0, 
-		1.3, -2.2, vec);
 	sceneSetCamera(&rootNode, &cam);
 	lightSetType(&lightA, lightSPOT);
 	lightSetType(&lightB, lightSPOT);

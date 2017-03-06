@@ -7,6 +7,7 @@ Program implementing scene graph
 #define sceneTRANSFORMATION 0
 #define sceneGEOMETRY 1
 #define sceneCAMERA 2
+#define sceneLIGHT 3
 
 /*** Creation and destruction ***/
 
@@ -30,6 +31,12 @@ struct sceneNode {
 
 	// Camera node
 	camCamera *cam;
+
+	// Light node
+	lightLight *light;
+	GLint lightPosition, lightColor, lightAtten, lightDir, lightCos;
+	shadowMap sdwMap;
+	GLint viewingSdw, textureUnit, textureSdw;
 };
 
 /* Initializes a sceneNode struct. The translation and rotation are initialized to trivial values. The user must remember to call sceneDestroy or 
@@ -80,6 +87,28 @@ int sceneInitializeGeometry(sceneNode *node, GLuint unifDim, GLuint texNum,
 int sceneInitializeCamera(sceneNode *node, GLuint unifDim, GLdouble rotation[3][3],
 		GLdouble translation[3], sceneNode *firstChild, sceneNode *nextSibling){
 	node->nodeType = sceneCAMERA;
+    node->unif = (GLdouble *)malloc(unifDim * sizeof(GLdouble));
+    if (node->unif == NULL)
+        return 1;
+    if(translation==NULL){
+    	vecSet(3, node->translation, 0.0, 0.0, 0.0);
+    } else{
+    	vecCopy(3, node->translation, translation);
+    }
+    if(rotation==NULL){
+    	mat33Identity(node->rotation);
+    } else {
+    	vecCopy(9, (GLdouble *)rotation, (GLdouble *)(node->rotation));
+    }
+	node->unifDim = unifDim;
+	node->firstChild = firstChild;
+	node->nextSibling = nextSibling;
+	return 0;
+}
+
+int sceneInitializeLight(sceneNode *node, GLuint unifDim, GLdouble rotation[3][3],
+		GLdouble translation[3], sceneNode *firstChild, sceneNode *nextSibling){
+	node->nodeType = sceneLIGHT;
     node->unif = (GLdouble *)malloc(unifDim * sizeof(GLdouble));
     if (node->unif == NULL)
         return 1;
@@ -177,6 +206,30 @@ void sceneSetNextSibling(sceneNode *node, sceneNode *sibling) {
 	node->nextSibling = sibling;
 }
 
+void sceneSetLightLocations(sceneNode *node, GLint lightPos, GLint lightColor, 
+	GLint lightAtten, GLint lightDir, GLint lightCos){
+	if(lightPos!=NULL){
+		node->lightPosition = lightPos;
+	}
+
+	if(lightColor != NULL){
+		node->lightColor = lightColor;
+	}
+
+	if(lightAtten!=NULL){
+		node->lightAtten = lightAtten;
+	}
+
+	if(lightDir!=NULL){
+		node->lightDir = lightDir;
+	}
+
+	if(lightCos!=NULL){
+		node->lightCos = lightCos;
+	}
+}
+
+void sceneSetShadowLocations();
 /* Adds a sibling to the given node. The sibling shows up as the youngest of 
 its siblings. */
 void sceneAddSibling(sceneNode *node, sceneNode *sibling) {
@@ -282,6 +335,18 @@ void sceneRenderCamera(sceneNode *node, GLdouble parent[4][4],
 	vecOpenGL(3, node->cam->translation, vec);
 	glUniform3fv(camPosLoc, 1, vec);
 }
+void sceneRenderLight(sceneNode *node, GLdouble parent[4][4], 
+		GLdouble parentCam[4][4], GLint modelingLoc, GLint modelingCamLoc,
+		GLuint unifNum, GLuint unifDims[], GLint unifLocs[], double m[4][4], double mC[4][4]){
+	GLenum units[9]={GL_TEXTURE0, GL_TEXTURE1, GL_TEXTURE2, GL_TEXTURE3, GL_TEXTURE4, 
+					 GL_TEXTURE5, GL_TEXTURE6, GL_TEXTURE7, GL_TEXTURE8};
+	mat44Copy(parent, m);
+	mat44Copy(parentCam, mC);
+
+	lightRender(node->light, node->lighPos, node->lightColor, 
+		node->lightAtten, node->lightDir, node->lightCos);
+
+}
 
 void sceneRenderTransformation(sceneNode *node, GLdouble parent[4][4], GLdouble parentCam[4][4], 
 		GLint modelingLoc, GLint modelingCamLoc, GLuint unifNum, GLuint unifDims[], 
@@ -334,6 +399,9 @@ void sceneRender(sceneNode *node, GLdouble parent[4][4], GLdouble parentCam[4][4
 	/* Updated */
 	if (node->nodeType==sceneCAMERA){
 		sceneRenderCamera(node, parent, parentCam, modelingLoc, modelingCamLoc, unifNum, 
+			unifDims, unifLocs, m, mC, camPosLoc);
+	} else if (node->nodeType==sceneLIGHT){
+		sceneRenderLight(node, parent, parentCam, modelingLoc, modelingCamLoc, unifNum, 
 			unifDims, unifLocs, m, mC, camPosLoc);
 	} else if (node->nodeType==sceneTRANSFORMATION){
 		sceneRenderTransformation(node, parent, parentCam, modelingLoc, modelingCamLoc, unifNum, 
