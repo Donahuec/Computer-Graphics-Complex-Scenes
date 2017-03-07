@@ -106,22 +106,13 @@ int sceneInitializeCamera(sceneNode *node, GLuint unifDim, GLdouble rotation[3][
 	return 0;
 }
 
-int sceneInitializeLight(sceneNode *node, GLuint unifDim, GLdouble rotation[3][3],
-		GLdouble translation[3], sceneNode *firstChild, sceneNode *nextSibling){
+int sceneInitializeLight(sceneNode *node, GLuint unifDim, lightLight *light, sceneNode *firstChild, sceneNode *nextSibling){
 	node->nodeType = sceneLIGHT;
     node->unif = (GLdouble *)malloc(unifDim * sizeof(GLdouble));
+	node->light = light;
     if (node->unif == NULL)
         return 1;
-    if(translation==NULL){
-    	vecSet(3, node->translation, 0.0, 0.0, 0.0);
-    } else{
-    	vecCopy(3, node->translation, translation);
-    }
-    if(rotation==NULL){
-    	mat33Identity(node->rotation);
-    } else {
-    	vecCopy(9, (GLdouble *)rotation, (GLdouble *)(node->rotation));
-    }
+    
 	node->unifDim = unifDim;
 	node->firstChild = firstChild;
 	node->nextSibling = nextSibling;
@@ -208,28 +199,38 @@ void sceneSetNextSibling(sceneNode *node, sceneNode *sibling) {
 
 void sceneSetLightLocations(sceneNode *node, GLint lightPos, GLint lightColor, 
 	GLint lightAtten, GLint lightDir, GLint lightCos){
-	if(lightPos!=NULL){
+	if (lightPos != -1)
 		node->lightPosition = lightPos;
-	}
 
-	if(lightColor != NULL){
+	if (lightColor != -1)
 		node->lightColor = lightColor;
-	}
 
-	if(lightAtten!=NULL){
+	if (lightAtten != -1)
 		node->lightAtten = lightAtten;
-	}
 
-	if(lightDir!=NULL){
+	if (lightDir != -1)
 		node->lightDir = lightDir;
-	}
 
-	if(lightCos!=NULL){
+	if (lightCos != -1)
 		node->lightCos = lightCos;
-	}
+
 }
 
-void sceneSetShadowLocations();
+void sceneSetShadowLocations(sceneNode *node, GLint viewingSdw, GLint textureUnit, GLint textureSdw) {
+	if (viewingSdw != -1) 
+		node->viewingSdw = viewingSdw;
+	
+	if (textureUnit != -1)
+		node->textureUnit = textureUnit;
+	
+	if (textureSdw != -1) 
+		node->textureSdw = textureSdw;
+}
+
+void sceneSetShadowMap(sceneNode *node, shadowMap sdwMap) {
+	node->sdwMap = sdwMap;
+}
+
 /* Adds a sibling to the given node. The sibling shows up as the youngest of 
 its siblings. */
 void sceneAddSibling(sceneNode *node, sceneNode *sibling) {
@@ -342,10 +343,10 @@ void sceneRenderLight(sceneNode *node, GLdouble parent[4][4],
 					 GL_TEXTURE5, GL_TEXTURE6, GL_TEXTURE7, GL_TEXTURE8};
 	mat44Copy(parent, m);
 	mat44Copy(parentCam, mC);
-
-	lightRender(node->light, node->lighPos, node->lightColor, 
+	
+	lightRender(node->light, node->lightPosition, node->lightColor, 
 		node->lightAtten, node->lightDir, node->lightCos);
-
+	shadowRender(&(node->sdwMap), node->viewingSdw, units[node->textureUnit], node->textureUnit, node->textureSdw);
 }
 
 void sceneRenderTransformation(sceneNode *node, GLdouble parent[4][4], GLdouble parentCam[4][4], 
@@ -402,7 +403,7 @@ void sceneRender(sceneNode *node, GLdouble parent[4][4], GLdouble parentCam[4][4
 			unifDims, unifLocs, m, mC, camPosLoc);
 	} else if (node->nodeType==sceneLIGHT){
 		sceneRenderLight(node, parent, parentCam, modelingLoc, modelingCamLoc, unifNum, 
-			unifDims, unifLocs, m, mC, camPosLoc);
+			unifDims, unifLocs, m, mC);	
 	} else if (node->nodeType==sceneTRANSFORMATION){
 		sceneRenderTransformation(node, parent, parentCam, modelingLoc, modelingCamLoc, unifNum, 
 			unifDims, unifLocs, m, mC);
