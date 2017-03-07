@@ -9,6 +9,12 @@ Program implementing scene graph
 #define sceneCAMERA 2
 #define sceneLIGHT 3
 
+#define sceneCASTSHADOWS 0
+#define sceneNOSHADOWS 1
+
+GLenum units[9]={GL_TEXTURE0, GL_TEXTURE1, GL_TEXTURE2, GL_TEXTURE3, GL_TEXTURE4, 
+				 GL_TEXTURE5, GL_TEXTURE6, GL_TEXTURE7, GL_TEXTURE8};
+
 /*** Creation and destruction ***/
 
 /* Feel free to read from this struct's members, but don't write to them except 
@@ -33,16 +39,16 @@ struct sceneNode {
 	camCamera *cam;
 
 	// Light node
+	GLuint hasShadows;
 	lightLight *light;
 	GLint lightPosition, lightColor, lightAtten, lightDir, lightCos;
-	shadowMap sdwMap;
+	shadowMap *sdwMap;
 	GLint viewingSdw, textureUnit, textureSdw;
 };
 
-/* Initializes a sceneNode struct. The translation and rotation are initialized to trivial values. The user must remember to call sceneDestroy or 
+/* Initializes a transformation Node that handles rotation and translation for all child nodes.
+ The user must remember to call sceneDestroy or 
 sceneDestroyRecursively when finished. Returns 0 if no error occurred. */
-
-/* Updated */
 int sceneInitializeTransformation(sceneNode *node, GLuint unifDim, GLdouble rotation[3][3],
 		GLdouble translation[3], sceneNode *firstChild, sceneNode *nextSibling) {
 	node->nodeType = sceneTRANSFORMATION;
@@ -65,6 +71,9 @@ int sceneInitializeTransformation(sceneNode *node, GLuint unifDim, GLdouble rota
 	return 0;
 }
 
+/* Initializes a Geometry Node. This handles the mesh and textures of a unit.
+ The user must remember to call sceneDestroy or 
+sceneDestroyRecursively when finished. Returns 0 if no error occurred. */
 int sceneInitializeGeometry(sceneNode *node, GLuint unifDim, GLuint texNum, 
 		meshGLMesh *mesh, sceneNode *firstChild, sceneNode *nextSibling){
 	node->nodeType = sceneGEOMETRY;
@@ -84,6 +93,9 @@ int sceneInitializeGeometry(sceneNode *node, GLuint unifDim, GLuint texNum,
 
 }
 
+/* Initializes a Camera node. this should be the root node of a scene.
+The user must remember to call sceneDestroy or 
+sceneDestroyRecursively when finished. Returns 0 if no error occurred. */
 int sceneInitializeCamera(sceneNode *node, GLuint unifDim, GLdouble rotation[3][3],
 		GLdouble translation[3], sceneNode *firstChild, sceneNode *nextSibling){
 	node->nodeType = sceneCAMERA;
@@ -106,19 +118,23 @@ int sceneInitializeCamera(sceneNode *node, GLuint unifDim, GLdouble rotation[3][
 	return 0;
 }
 
+/* Initializes a light node. The user must remember to call sceneDestroy or 
+sceneDestroyRecursively when finished. Returns 0 if no error occurred. */
 int sceneInitializeLight(sceneNode *node, GLuint unifDim, lightLight *light, sceneNode *firstChild, sceneNode *nextSibling){
 	node->nodeType = sceneLIGHT;
     node->unif = (GLdouble *)malloc(unifDim * sizeof(GLdouble));
 	node->light = light;
+	node->hasShadows  = sceneCASTSHADOWS;
     if (node->unif == NULL)
         return 1;
-    
+    mat33Identity(node->rotation);
+	vecSet(3, node->translation, 0.0, 0.0, 0.0);
 	node->unifDim = unifDim;
 	node->firstChild = firstChild;
 	node->nextSibling = nextSibling;
 	return 0;
 }
-/* Updated */
+
 
 /* Deallocates the resources backing this scene node. Does not destroy the 
 resources backing the mesh, etc. */
@@ -129,7 +145,7 @@ void sceneDestroy(sceneNode *node) {
 }
 
 /*** Accessors ***/
-/* . */
+/* Sets what type of Node this is */
 void sceneSetType(sceneNode *node, GLuint type) {
 	node->nodeType = type;
 }
@@ -143,10 +159,12 @@ void sceneSetOneUniform(sceneNode *node, int index, double unif) {
 	node->unif[index] = unif;
 }
 
+/* Sets how many textures a Geometry node has */
 void sceneSetTexNum(sceneNode *node, GLuint num) {
 	node->texNum = num;
 }
 
+/* Sets All textures of a Geometry node */
 void sceneSetTexture(sceneNode *node, texTexture *textures[]) {
 	for(int i=0;i<node->texNum;i++){
 		node->tex[i]=textures[i];
@@ -197,6 +215,7 @@ void sceneSetNextSibling(sceneNode *node, sceneNode *sibling) {
 	node->nextSibling = sibling;
 }
 
+/* Sets up the OpenGL locations for light Nodes */
 void sceneSetLightLocations(sceneNode *node, GLint lightPos, GLint lightColor, 
 	GLint lightAtten, GLint lightDir, GLint lightCos){
 	if (lightPos != -1)
@@ -216,6 +235,12 @@ void sceneSetLightLocations(sceneNode *node, GLint lightPos, GLint lightColor,
 
 }
 
+/* Sets the shadowMap of a light Node */
+void sceneSetHasShadow(sceneNode *node, GLuint hasShadows) {
+	node->hasShadows = hasShadows;
+}
+
+/* Sets up the OpenGL locations for light Node shadows */
 void sceneSetShadowLocations(sceneNode *node, GLint viewingSdw, GLint textureUnit, GLint textureSdw) {
 	if (viewingSdw != -1) 
 		node->viewingSdw = viewingSdw;
@@ -227,7 +252,8 @@ void sceneSetShadowLocations(sceneNode *node, GLint viewingSdw, GLint textureUni
 		node->textureSdw = textureSdw;
 }
 
-void sceneSetShadowMap(sceneNode *node, shadowMap sdwMap) {
+/* Sets the shadowMap of a light Node */
+void sceneSetShadowMap(sceneNode *node, shadowMap *sdwMap) {
 	node->sdwMap = sdwMap;
 }
 
@@ -274,16 +300,12 @@ void sceneRemoveChild(sceneNode *node, sceneNode *child) {
 }
 
 void sceneRenderTextures(sceneNode *node, GLint textureLocs[]){
-	GLenum units[9]={GL_TEXTURE0, GL_TEXTURE1, GL_TEXTURE2, GL_TEXTURE3, GL_TEXTURE4, 
-					 GL_TEXTURE5, GL_TEXTURE6, GL_TEXTURE7, GL_TEXTURE8};
 	for(int k=0;k<node->texNum; k++){
 			texRender(node->tex[k], units[k], k, textureLocs[k]);
 	}
 }
 
 void sceneUnrenderTextures(sceneNode *node, GLint textureLocs[]){
-	GLenum units[9]={GL_TEXTURE0, GL_TEXTURE1, GL_TEXTURE2, GL_TEXTURE3, GL_TEXTURE4, 
-					 GL_TEXTURE5, GL_TEXTURE6, GL_TEXTURE7, GL_TEXTURE8};
 	for(int k=0;k<node->texNum; k++){
 			texUnrender(node->tex[k], units[k]);
 	}
@@ -339,14 +361,13 @@ void sceneRenderCamera(sceneNode *node, GLdouble parent[4][4],
 void sceneRenderLight(sceneNode *node, GLdouble parent[4][4], 
 		GLdouble parentCam[4][4], GLint modelingLoc, GLint modelingCamLoc,
 		GLuint unifNum, GLuint unifDims[], GLint unifLocs[], double m[4][4], double mC[4][4]){
-	GLenum units[9]={GL_TEXTURE0, GL_TEXTURE1, GL_TEXTURE2, GL_TEXTURE3, GL_TEXTURE4, 
-					 GL_TEXTURE5, GL_TEXTURE6, GL_TEXTURE7, GL_TEXTURE8};
 	mat44Copy(parent, m);
 	mat44Copy(parentCam, mC);
 	
 	lightRender(node->light, node->lightPosition, node->lightColor, 
 		node->lightAtten, node->lightDir, node->lightCos);
-	shadowRender(&(node->sdwMap), node->viewingSdw, units[node->textureUnit], node->textureUnit, node->textureSdw);
+	shadowRender(node->sdwMap, node->viewingSdw, units[node->textureUnit],
+			 	node->textureUnit, node->textureSdw);
 }
 
 void sceneRenderTransformation(sceneNode *node, GLdouble parent[4][4], GLdouble parentCam[4][4], 
@@ -402,8 +423,8 @@ void sceneRender(sceneNode *node, GLdouble parent[4][4], GLdouble parentCam[4][4
 		sceneRenderCamera(node, parent, parentCam, modelingLoc, modelingCamLoc, unifNum, 
 			unifDims, unifLocs, m, mC, camPosLoc);
 	} else if (node->nodeType==sceneLIGHT){
-		sceneRenderLight(node, parent, parentCam, modelingLoc, modelingCamLoc, unifNum, 
-			unifDims, unifLocs, m, mC);	
+		sceneRenderLight(node, parent, parentCam, modelingLoc, modelingCamLoc, unifNum,
+			unifDims, unifLocs, m, mC);
 	} else if (node->nodeType==sceneTRANSFORMATION){
 		sceneRenderTransformation(node, parent, parentCam, modelingLoc, modelingCamLoc, unifNum, 
 			unifDims, unifLocs, m, mC);

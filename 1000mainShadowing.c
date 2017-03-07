@@ -318,12 +318,12 @@ int initializeScene(void) {
 	sceneSetLightLocations(&lightNodeOne, lightPosLoc[0], lightColLoc[0], 
 		lightAttLoc[0], lightDirLoc[0], lightCosLoc[0]);
 	sceneSetShadowLocations(&lightNodeOne, viewingSdwLoc[0], 6, textureSdwLoc[0]);
-	sceneSetShadowMap(&lightNodeOne, sdwMapA);
+	sceneSetShadowMap(&lightNodeOne, &sdwMapA);
 	
 	sceneSetLightLocations(&lightNodeTwo, lightPosLoc[1], lightColLoc[1], 
 		lightAttLoc[1], lightDirLoc[1], lightCosLoc[1]);
 	sceneSetShadowLocations(&lightNodeTwo, viewingSdwLoc[1], 7, textureSdwLoc[1]);
-	sceneSetShadowMap(&lightNodeTwo, sdwMapB);
+	sceneSetShadowMap(&lightNodeTwo, &sdwMapB);
 	return 0;
 }
 
@@ -490,18 +490,7 @@ void render(void) {
 	glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glUseProgram(program);
-	// camRender(&cam, viewingLoc);
-	// GLfloat vec[3];
-	// vecOpenGL(3, cam.translation, vec);
-	// glUniform3fv(camPosLoc, 1, vec);
-	/* For each light, we have to connect it to the shader program, as always. 
-	For each shadow-casting light, we must also connect its shadow map. */
-	//lightRender(&lightA, lightPosLoc[0], lightColLoc[0], lightAttLoc[0], lightDirLoc[0], 
-	//	lightCosLoc[0]);
-	//shadowRender(&sdwMapA, viewingSdwLoc[0], GL_TEXTURE6, 6, textureSdwLoc[0]);
-	//lightRender(&lightB, lightPosLoc[1], lightColLoc[1], lightAttLoc[1], lightDirLoc[1], 
-	//	lightCosLoc[1]);
-	//shadowRender(&sdwMapB, viewingSdwLoc[1], GL_TEXTURE7, 7, textureSdwLoc[1]);
+
 	GLuint unifDims[1] = {3};
 	sceneRender(&rootNode, identity, identity, modelingLoc, modelingCameraLoc, 1, unifDims, unifLocs, 0, 
 		textureLocs, camPosLoc);
