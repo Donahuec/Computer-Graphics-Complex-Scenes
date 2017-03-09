@@ -28,16 +28,16 @@ double getTime(void) {
 #include "1000matrix.c"
 #include "520camera.c"
 #include "540texture.c"
+#include "1000scene.c"
 #include "560light.c"
 #include "590shadow.c"
-#include "1000scene.c"
 
 camCamera cam;
 texTexture texH, texV, texW, texT, texL;
 meshGLMesh meshH, meshV, meshW, meshT, meshL;
 /* Updated */
 sceneNode nodeH, nodeV, nodeW, nodeT, nodeL, 
-	rootNode, transformationNodeT, transformationNodeL, lightNodeOne, lightNodeTwo;
+	rootNode, transformationNodeT, transformationNodeL;
 /* We need just one shadow program, because all of our meshes have the same 
 attribute structure. */
 shadowProgram sdwProg;
@@ -140,46 +140,6 @@ void handleKey(GLFWwindow *window, int key, int scancode, int action,
 midway through, then does not properly deallocate all resources. But that's 
 okay, because the program terminates almost immediately after this function 
 returns. */
-int initializeCameraLight(void) {
-    GLdouble vec[3] = {30.0, 30.0, 5.0};
-	camSetControls(&cam, camPERSPECTIVE, M_PI / 6.0, 10.0, 768.0, 768.0, 130.0, 
-		1.3, -2.2, vec);
-	sceneSetCamera(&rootNode, &cam);
-	
-	lightSetType(&lightA, lightSPOT);
-	lightSetType(&lightB, lightSPOT);
-
-	vecSet(3, vec, 55.0, 10.0, 20.0);
-	lightShineFrom(&lightA, vec, M_PI * 3.0 / 4.0, M_PI * 3.0 / 4.0);
-	vecSet(3, vec, 45.0, 0.0, 20.0);
-	lightShineFrom(&lightB, vec, M_PI * 3.0 / 4.0, M_PI * 3.0 / 4.0);
-
-	/* one light red, one green */
-	vecSet(3, vec, 0.8, 0.1, 0.4);
-	lightSetColor(&lightA, vec);
-	vecSet(3, vec, 0.1, 0.8, 0.4);
-	lightSetColor(&lightB, vec);
-
-	vecSet(3, vec, 1.0, 0.0, 0.0);
-	lightSetAttenuation(&lightA, vec);
-	lightSetAttenuation(&lightB, vec);
-
-	lightSetSpotAngle(&lightA, M_PI / 4.0);
-	lightSetSpotAngle(&lightB, M_PI / 3.0);
-	/* Configure shadow mapping. */
-	if (shadowProgramInitialize(&sdwProg, 3) != 0)
-		return 1;
-	if (shadowMapInitialize(&sdwMapA, 1024, 1024) != 0)
-		return 2;
-	if (shadowMapInitialize(&sdwMapB, 1024, 1024) != 0)
-		return 3;
-	return 0;
-}
-
-/* Returns 0 on success, non-zero on failure. Warning: If initialization fails 
-midway through, then does not properly deallocate all resources. But that's 
-okay, because the program terminates almost immediately after this function 
-returns. */
 int initializeScene(void) {
 	if (texInitializeFile(&texH, "grass.jpg", GL_LINEAR, GL_LINEAR, 
     		GL_REPEAT, GL_REPEAT) != 0)
@@ -265,7 +225,6 @@ int initializeScene(void) {
 	meshGLVAOInitialize(&meshL, 0, attrLocs);
 	meshGLVAOInitialize(&meshL, 1, sdwProg.attrLocs);
 	meshDestroy(&mesh);
-	
 	if (sceneInitializeGeometry(&nodeW, 3, 1, &meshW, NULL, NULL) != 0)
 		return 14;
 	if (sceneInitializeGeometry(&nodeL, 3, 1, &meshL, NULL, NULL) != 0)
@@ -282,13 +241,9 @@ int initializeScene(void) {
 		return 13;
 	if (sceneInitializeGeometry(&nodeH, 3, 1, &meshH, &nodeV, NULL) != 0)
 		return 12;
-	if (sceneInitializeLight(&lightNodeOne, 3, &lightB, NULL, &nodeH) != 0)
-		return 14;
-	if (sceneInitializeLight(&lightNodeTwo, 3, &lightA, NULL, &lightNodeOne) != 0)
-		return 15;
 	if (sceneInitializeCamera(&rootNode, 
-		3, NULL, NULL, &lightNodeTwo, NULL) != 0)
-		return 16; 
+		3, NULL, NULL, &nodeH, NULL) != 0)
+		return 11; 
 	GLdouble transl[3] = {40.0, 28.0, 5.0};
 	sceneSetTranslation(&transformationNodeT, transl);
 	vecSet(3, transl, 0.0, 0.0, 7.0);
@@ -314,16 +269,6 @@ int initializeScene(void) {
 	sceneSetTexture(&nodeT, &tex);
 	tex = &texL;
 	sceneSetTexture(&nodeL, &tex);
-	
-	sceneSetLightLocations(&lightNodeOne, lightPosLoc[0], lightColLoc[0], 
-		lightAttLoc[0], lightDirLoc[0], lightCosLoc[0]);
-	sceneSetShadowLocations(&lightNodeOne, viewingSdwLoc[0], 6, textureSdwLoc[0]);
-	sceneSetShadowMap(&lightNodeOne, &sdwMapA);
-	
-	sceneSetLightLocations(&lightNodeTwo, lightPosLoc[1], lightColLoc[1], 
-		lightAttLoc[1], lightDirLoc[1], lightCosLoc[1]);
-	sceneSetShadowLocations(&lightNodeTwo, viewingSdwLoc[1], 7, textureSdwLoc[1]);
-	sceneSetShadowMap(&lightNodeTwo, &sdwMapB);
 	return 0;
 }
 
@@ -341,7 +286,44 @@ void destroyScene(void) {
 	sceneDestroyRecursively(&rootNode);
 }
 
+/* Returns 0 on success, non-zero on failure. Warning: If initialization fails 
+midway through, then does not properly deallocate all resources. But that's 
+okay, because the program terminates almost immediately after this function 
+returns. */
+int initializeCameraLight(void) {
+    GLdouble vec[3] = {30.0, 30.0, 5.0};
+	camSetControls(&cam, camPERSPECTIVE, M_PI / 6.0, 10.0, 768.0, 768.0, 130.0, 
+		1.3, -2.2, vec);
+	sceneSetCamera(&rootNode, &cam);
+	lightSetType(&lightA, lightSPOT);
+	lightSetType(&lightB, lightSPOT);
 
+	vecSet(3, vec, 55.0, 10.0, 20.0);
+	lightShineFrom(&lightA, vec, M_PI * 3.0 / 4.0, M_PI * 3.0 / 4.0);
+	vecSet(3, vec, 45.0, 0.0, 20.0);
+	lightShineFrom(&lightB, vec, M_PI * 3.0 / 4.0, M_PI * 3.0 / 4.0);
+
+	/* one light red, one green */
+	vecSet(3, vec, 0.8, 0.1, 0.4);
+	lightSetColor(&lightA, vec);
+	vecSet(3, vec, 0.1, 0.8, 0.4);
+	lightSetColor(&lightB, vec);
+
+	vecSet(3, vec, 1.0, 0.0, 0.0);
+	lightSetAttenuation(&lightA, vec);
+	lightSetAttenuation(&lightB, vec);
+
+	lightSetSpotAngle(&lightA, M_PI / 4.0);
+	lightSetSpotAngle(&lightB, M_PI / 3.0);
+	/* Configure shadow mapping. */
+	if (shadowProgramInitialize(&sdwProg, 3) != 0)
+		return 1;
+	if (shadowMapInitialize(&sdwMapA, 1024, 1024) != 0)
+		return 2;
+	if (shadowMapInitialize(&sdwMapB, 1024, 1024) != 0)
+		return 3;
+	return 0;
+}
 
 /* Returns 0 on success, non-zero on failure. */
 int initializeShaderProgram(void) {
@@ -479,21 +461,31 @@ void render(void) {
 	GLint sdwTextureLocs[1] = {-1};
 	shadowMapRender(&sdwMapA, &sdwProg, &lightA, -100.0, -1.0);
 	sceneRender(&nodeH, identity, identity, sdwProg.modelingLoc, sdwProg.modelingLoc, 0, NULL, NULL, 1, 
-		sdwTextureLocs, -1);
+		sdwTextureLocs);
 	shadowMapUnrender();
 	shadowMapRender(&sdwMapB, &sdwProg, &lightB, -100.0, -1.0);
 	sceneRender(&nodeH, identity, identity, sdwProg.modelingLoc, sdwProg.modelingLoc, 0, NULL, NULL, 1, 
-		sdwTextureLocs, -1);
+		sdwTextureLocs);
 	shadowMapUnrender();
 	/* Finish preparing the shadow maps, restore the viewport, and begin to 
 	render the scene. */
 	glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glUseProgram(program);
-
+	GLfloat vec[3];
+	vecOpenGL(3, cam.translation, vec);
+	glUniform3fv(camPosLoc, 1, vec);
+	/* For each light, we have to connect it to the shader program, as always. 
+	For each shadow-casting light, we must also connect its shadow map. */
+	lightRender(&lightA, lightPosLoc[0], lightColLoc[0], lightAttLoc[0], lightDirLoc[0], 
+		lightCosLoc[0]);
+	shadowRender(&sdwMapA, viewingSdwLoc[0], GL_TEXTURE6, 6, textureSdwLoc[0]);
+	lightRender(&lightB, lightPosLoc[1], lightColLoc[1], lightAttLoc[1], lightDirLoc[1], 
+		lightCosLoc[1]);
+	shadowRender(&sdwMapB, viewingSdwLoc[1], GL_TEXTURE7, 7, textureSdwLoc[1]);
 	GLuint unifDims[1] = {3};
 	sceneRender(&rootNode, identity, identity, modelingLoc, modelingCameraLoc, 1, unifDims, unifLocs, 0, 
-		textureLocs, camPosLoc);
+		textureLocs);
 
 	shadowUnrender(GL_TEXTURE6);
 	shadowUnrender(GL_TEXTURE7);
