@@ -28,16 +28,17 @@ double getTime(void) {
 #include "1000matrix.c"
 #include "520camera.c"
 #include "540texture.c"
-#include "1000scene.c"
 #include "560light.c"
 #include "590shadow.c"
+#include "1000scene.c"
 
 camCamera cam;
 texTexture texH, texV, texW, texT, texL;
-meshGLMesh meshH, meshV, meshW, meshT, meshL;
+meshGLMesh meshH, meshV, meshW, meshT, meshTMed, meshTFar, meshL, meshLMed, meshLFar;
 /* Updated */
-sceneNode nodeH, nodeV, nodeW, nodeT, nodeL, 
-	rootNode, transformationNodeT, transformationNodeL;
+sceneNode nodeH, nodeV, nodeW, nodeT, nodeTMed, nodeTFar, nodeL, nodeLMed, nodeLFar,
+	rootNode, transformationNodeT, transformationNodeL, lightNodeOne, lightNodeTwo,
+	lodNodeL, lodNodeT;
 /* We need just one shadow program, because all of our meshes have the same 
 attribute structure. */
 shadowProgram sdwProg;
@@ -46,7 +47,7 @@ lightLight lightA, lightB;
 shadowMap sdwMapA, sdwMapB;
 /* The main shader program has extra hooks for shadowing. */
 GLuint program;
-GLint viewingLoc, modelingLoc, modelingCameraLoc;
+GLint viewingLoc, modelingLoc, projLoc, distFromCam;
 GLint unifLocs[1], textureLocs[1];
 GLint attrLocs[3];
 GLint lightPosLoc[2], lightColLoc[2], lightAttLoc[2], lightDirLoc[2], lightCosLoc[2];
@@ -140,6 +141,46 @@ void handleKey(GLFWwindow *window, int key, int scancode, int action,
 midway through, then does not properly deallocate all resources. But that's 
 okay, because the program terminates almost immediately after this function 
 returns. */
+int initializeCameraLight(void) {
+    GLdouble vec[3] = {30.0, 30.0, 5.0};
+	camSetControls(&cam, camPERSPECTIVE, M_PI / 6.0, 10.0, 768.0, 768.0, 180.0, 
+		1.3, -2.2, vec);
+	sceneSetCamera(&rootNode, &cam);
+	
+	lightSetType(&lightA, lightSPOT);
+	lightSetType(&lightB, lightSPOT);
+
+	vecSet(3, vec, 55.0, 10.0, 20.0);
+	lightShineFrom(&lightA, vec, M_PI * 3.0 / 4.0, M_PI * 3.0 / 4.0);
+	vecSet(3, vec, 45.0, 0.0, 20.0);
+	lightShineFrom(&lightB, vec, M_PI * 3.0 / 4.0, M_PI * 3.0 / 4.0);
+
+	/* one light red, one green */
+	vecSet(3, vec, 0.8, 0.1, 0.4);
+	lightSetColor(&lightA, vec);
+	vecSet(3, vec, 0.1, 0.8, 0.4);
+	lightSetColor(&lightB, vec);
+
+	vecSet(3, vec, 1.0, 0.0, 0.0);
+	lightSetAttenuation(&lightA, vec);
+	lightSetAttenuation(&lightB, vec);
+
+	lightSetSpotAngle(&lightA, M_PI / 4.0);
+	lightSetSpotAngle(&lightB, M_PI / 3.0);
+	/* Configure shadow mapping. */
+	if (shadowProgramInitialize(&sdwProg, 3) != 0)
+		return 1;
+	if (shadowMapInitialize(&sdwMapA, 1024, 1024) != 0)
+		return 2;
+	if (shadowMapInitialize(&sdwMapB, 1024, 1024) != 0)
+		return 3;
+	return 0;
+}
+
+/* Returns 0 on success, non-zero on failure. Warning: If initialization fails 
+midway through, then does not properly deallocate all resources. But that's 
+okay, because the program terminates almost immediately after this function 
+returns. */
 int initializeScene(void) {
 	if (texInitializeFile(&texH, "grass.jpg", GL_LINEAR, GL_LINEAR, 
     		GL_REPEAT, GL_REPEAT) != 0)
@@ -219,31 +260,77 @@ int initializeScene(void) {
 	meshGLVAOInitialize(&meshT, 0, attrLocs);
 	meshGLVAOInitialize(&meshT, 1, sdwProg.attrLocs);
 	meshDestroy(&mesh);
+	if (meshInitializeBox(&mesh, -1.0, 0.5, -1.0, 0.5, -2.0, 3.0))
+		return 33;
+	meshGLInitialize(&meshTMed, &mesh, 3, attrDims, 2);
+	meshGLVAOInitialize(&meshTMed, 0, attrLocs);
+	meshGLVAOInitialize(&meshTMed, 1, sdwProg.attrLocs);
+	meshDestroy(&mesh);
+	if (meshInitializeBox(&mesh, -0.5, 0.0, -0.5, 0.0, -2.0, 5.0))
+		return 33;
+	meshGLInitialize(&meshTFar, &mesh, 3, attrDims, 2);
+	meshGLVAOInitialize(&meshTFar, 0, attrLocs);
+	meshGLVAOInitialize(&meshTFar, 1, sdwProg.attrLocs);
+	meshDestroy(&mesh);
 	if (meshInitializeSphere(&mesh, 5.0, 8, 16) != 0)
 		return 11;
 	meshGLInitialize(&meshL, &mesh, 3, attrDims, 2);
 	meshGLVAOInitialize(&meshL, 0, attrLocs);
 	meshGLVAOInitialize(&meshL, 1, sdwProg.attrLocs);
 	meshDestroy(&mesh);
+	if (meshInitializeSphere(&mesh, 5.0, 4, 8) != 0)
+		return 12;
+	meshGLInitialize(&meshLMed, &mesh, 3, attrDims, 2);
+	meshGLVAOInitialize(&meshLMed, 0, attrLocs);
+	meshGLVAOInitialize(&meshLMed, 1, sdwProg.attrLocs);
+	meshDestroy(&mesh);
+	if (meshInitializeBox(&mesh, -2.0, 2.0, -2.0, 2.0, -2.0, 1.0))
+		return 33;
+	meshGLInitialize(&meshLFar, &mesh, 3, attrDims, 2);
+	meshGLVAOInitialize(&meshLFar, 0, attrLocs);
+	meshGLVAOInitialize(&meshLFar, 1, sdwProg.attrLocs);
+	meshDestroy(&mesh);
+	// sceneNode **childrenL;
+	// childrenL[0] = &nodeL;
+	// childrenL[1] = &nodeLMed;
+	// sceneNode **childrenT;
+	// childrenT[0] = &nodeT;
+	// childrenT[1] = &nodeTMed;
 	if (sceneInitializeGeometry(&nodeW, 3, 1, &meshW, NULL, NULL) != 0)
 		return 14;
 	if (sceneInitializeGeometry(&nodeL, 3, 1, &meshL, NULL, NULL) != 0)
 		return 16;
+	if (sceneInitializeGeometry(&nodeLMed, 3, 1, &meshLMed, NULL, NULL)!= 0)
+		return 34;
+	if (sceneInitializeGeometry(&nodeLFar, 3, 1, &meshLFar, NULL, NULL)!= 0)
+		return 34;
+	if (sceneInitializeLOD(&lodNodeL, 3, 3, NULL, NULL, NULL) != 0)
+		return 17;
 	if (sceneInitializeTransformation(&transformationNodeL, 
-		3, NULL, NULL, &nodeL, NULL) != 0)
+		3, NULL, NULL, &lodNodeL, NULL) != 0)
 		return 11;
 	if (sceneInitializeGeometry(&nodeT, 3, 1, &meshT, &transformationNodeL, NULL) != 0)
 		return 15;
+	if(sceneInitializeGeometry(&nodeTMed, 3, 1, &meshTMed, &transformationNodeL, NULL) != 0)
+		return 44;
+	if(sceneInitializeGeometry(&nodeTFar, 3, 1, &meshTFar, &transformationNodeL, NULL) != 0)
+		return 44;
+	if (sceneInitializeLOD(&lodNodeT, 3, 3, NULL, NULL, NULL) != 0)
+		return 17;
 	if (sceneInitializeTransformation(&transformationNodeT, 
-		3, NULL, NULL, &nodeT, &nodeW) != 0)
+		3, NULL, NULL, &lodNodeT, &nodeW) != 0)
 		return 11; 
 	if (sceneInitializeGeometry(&nodeV, 3, 1, &meshV, NULL, &transformationNodeT) != 0)
 		return 13;
 	if (sceneInitializeGeometry(&nodeH, 3, 1, &meshH, &nodeV, NULL) != 0)
 		return 12;
+	if (sceneInitializeLight(&lightNodeOne, 3, &lightB, NULL, &nodeH) != 0)
+		return 14;
+	if (sceneInitializeLight(&lightNodeTwo, 3, &lightA, NULL, &lightNodeOne) != 0)
+		return 15;
 	if (sceneInitializeCamera(&rootNode, 
-		3, NULL, NULL, &nodeH, NULL) != 0)
-		return 11; 
+		3, NULL, NULL, &lightNodeTwo, NULL) != 0)
+		return 16; 
 	GLdouble transl[3] = {40.0, 28.0, 5.0};
 	sceneSetTranslation(&transformationNodeT, transl);
 	vecSet(3, transl, 0.0, 0.0, 7.0);
@@ -252,9 +339,17 @@ int initializeScene(void) {
 	sceneSetUniform(&nodeH, unif);
 	sceneSetUniform(&nodeV, unif);
 	sceneSetUniform(&nodeT, unif);
+	sceneSetUniform(&nodeTMed, unif);
+	sceneSetUniform(&nodeTFar, unif);
 	sceneSetUniform(&nodeL, unif);
+	sceneSetUniform(&nodeLMed, unif);
+	sceneSetUniform(&nodeLFar, unif);
 	sceneSetUniform(&transformationNodeT, unif);
 	sceneSetUniform(&transformationNodeL, unif);
+	sceneSetUniform(&lightNodeOne, unif);
+	sceneSetUniform(&lightNodeTwo, unif);
+	sceneSetUniform(&lodNodeL, unif);
+	sceneSetUniform(&lodNodeT, unif);
 	sceneSetUniform(&rootNode, unif);
 	vecSet(3, unif, 1.0, 1.0, 1.0);
 	sceneSetUniform(&nodeW, unif);
@@ -267,8 +362,34 @@ int initializeScene(void) {
 	sceneSetTexture(&nodeW, &tex);
 	tex = &texT;
 	sceneSetTexture(&nodeT, &tex);
+	sceneSetTexture(&nodeTMed, &tex);
+	sceneSetTexture(&nodeTFar, &tex);
 	tex = &texL;
 	sceneSetTexture(&nodeL, &tex);
+	sceneSetTexture(&nodeLMed, &tex);
+	sceneSetTexture(&nodeLFar, &tex);
+	GLint r[3] = {100, 130, 150};
+	sceneSetRanges(&lodNodeL, r);
+	sceneSetRanges(&lodNodeT, r);
+	sceneNode *childrenL[3];
+	childrenL[0] = &nodeL;
+	childrenL[1] = &nodeLMed;
+	childrenL[2] = &nodeLFar;
+	sceneSetChildArray(&lodNodeL, childrenL);
+	sceneNode *childrenT[3];
+	childrenT[0] = &nodeT;
+	childrenT[1] = &nodeTMed;
+	childrenT[2] = &nodeTFar;
+	sceneSetChildArray(&lodNodeT, childrenT);
+	sceneSetLightLocations(&lightNodeOne, lightPosLoc[0], lightColLoc[0], 
+		lightAttLoc[0], lightDirLoc[0], lightCosLoc[0]);
+	sceneSetShadowLocations(&lightNodeOne, viewingSdwLoc[0], 6, textureSdwLoc[0]);
+	sceneSetShadowMap(&lightNodeOne, &sdwMapA);
+	
+	sceneSetLightLocations(&lightNodeTwo, lightPosLoc[1], lightColLoc[1], 
+		lightAttLoc[1], lightDirLoc[1], lightCosLoc[1]);
+	sceneSetShadowLocations(&lightNodeTwo, viewingSdwLoc[1], 7, textureSdwLoc[1]);
+	sceneSetShadowMap(&lightNodeTwo, &sdwMapB);
 	return 0;
 }
 
@@ -282,55 +403,20 @@ void destroyScene(void) {
 	meshGLDestroy(&meshV);
 	meshGLDestroy(&meshW);
 	meshGLDestroy(&meshT);
+	meshGLDestroy(&meshTMed);
+	meshGLDestroy(&meshTFar);
 	meshGLDestroy(&meshL);
+	meshGLDestroy(&meshLMed);
+	meshGLDestroy(&meshLFar);
 	sceneDestroyRecursively(&rootNode);
 }
 
-/* Returns 0 on success, non-zero on failure. Warning: If initialization fails 
-midway through, then does not properly deallocate all resources. But that's 
-okay, because the program terminates almost immediately after this function 
-returns. */
-int initializeCameraLight(void) {
-    GLdouble vec[3] = {30.0, 30.0, 5.0};
-	camSetControls(&cam, camPERSPECTIVE, M_PI / 6.0, 10.0, 768.0, 768.0, 130.0, 
-		1.3, -2.2, vec);
-	sceneSetCamera(&rootNode, &cam);
-	lightSetType(&lightA, lightSPOT);
-	lightSetType(&lightB, lightSPOT);
-
-	vecSet(3, vec, 55.0, 10.0, 20.0);
-	lightShineFrom(&lightA, vec, M_PI * 3.0 / 4.0, M_PI * 3.0 / 4.0);
-	vecSet(3, vec, 45.0, 0.0, 20.0);
-	lightShineFrom(&lightB, vec, M_PI * 3.0 / 4.0, M_PI * 3.0 / 4.0);
-
-	/* one light red, one green */
-	vecSet(3, vec, 0.8, 0.1, 0.4);
-	lightSetColor(&lightA, vec);
-	vecSet(3, vec, 0.1, 0.8, 0.4);
-	lightSetColor(&lightB, vec);
-
-	vecSet(3, vec, 1.0, 0.0, 0.0);
-	lightSetAttenuation(&lightA, vec);
-	lightSetAttenuation(&lightB, vec);
-
-	lightSetSpotAngle(&lightA, M_PI / 4.0);
-	lightSetSpotAngle(&lightB, M_PI / 3.0);
-	/* Configure shadow mapping. */
-	if (shadowProgramInitialize(&sdwProg, 3) != 0)
-		return 1;
-	if (shadowMapInitialize(&sdwMapA, 1024, 1024) != 0)
-		return 2;
-	if (shadowMapInitialize(&sdwMapB, 1024, 1024) != 0)
-		return 3;
-	return 0;
-}
-
-/* Returns 0 on success, non-zero on failure. */
 int initializeShaderProgram(void) {
 	GLchar vertexCode[] = "\
 		#version 140\n\
 		uniform mat4 modeling;\
-		uniform mat4 modelingCamera;\
+		uniform mat4 proj;\
+		uniform mat4 camDist;\
 		uniform mat4 viewingSdwA;\
 		uniform mat4 viewingSdwB;\
 		in vec3 position;\
@@ -341,6 +427,7 @@ int initializeShaderProgram(void) {
 		out vec2 st;\
 		out vec4 fragSdwA;\
 		out vec4 fragSdwB;\
+		out float eyeZ;\
 		void main(void) {\
 			mat4 scaleBias = mat4(\
 				0.5, 0.0, 0.0, 0.0, \
@@ -348,7 +435,9 @@ int initializeShaderProgram(void) {
 				0.0, 0.0, 0.5, 0.0, \
 				0.5, 0.5, 0.5, 1.0);\
 			vec4 worldPos = modeling * vec4(position, 1.0);\
-			gl_Position = modelingCamera * vec4(position, 1.0);\
+			gl_Position = proj * vec4(position, 1.0);\
+			vec4 eyeView = camDist * worldPos;\
+			eyeZ = -eyeView[2];\
 			fragSdwA = scaleBias * viewingSdwA * worldPos;\
 			fragSdwB = scaleBias * viewingSdwB * worldPos;\
 			fragPos = vec3(worldPos);\
@@ -372,6 +461,7 @@ int initializeShaderProgram(void) {
 		uniform float lightBCos;\
 		uniform sampler2DShadow textureSdwA;\
 		uniform sampler2DShadow textureSdwB;\
+		in float eyeZ;\
 		in vec3 fragPos;\
 		in vec3 normalDir;\
 		in vec2 st;\
@@ -379,6 +469,10 @@ int initializeShaderProgram(void) {
 		in vec4 fragSdwB;\
 		out vec4 fragColor;\
 		void main(void) {\
+			vec3 view = normalize(camPos-fragPos);\
+			float rim = 1 - max(dot(view, normalDir), 0.0);\
+			rim = smoothstep(0.6, 1.0, rim);\
+			vec3 finalRim = vec3(0.0, 0.0, 0.4) * vec3(rim, rim, rim);\
 			vec3 diffuse = vec3(texture(texture0, st));\
 			vec3 norDir = normalize(normalDir);\
 	        vec3 camDir = normalize(camPos - fragPos);\
@@ -419,7 +513,38 @@ int initializeShaderProgram(void) {
 			vec3 specReflB = specIntB * lightBCol * specular;\
     		specReflA = pow(specIntA, shininess) * lightACol * specular;\
     		specReflB = pow(specIntB, shininess) * lightBCol * specular;\
-			fragColor = vec4(diffReflA + diffReflB + specReflB + specReflA, 1.0);\
+    		vec3 fog = vec3(0.0, 0.0, 0.4);\
+    		vec3 cScale;\
+    		float f;\
+    		if(eyeZ>120){\
+    			cScale = (finalRim+diffReflA + diffReflB + specReflB + specReflA);\
+    			f = 1-(((eyeZ*0.003)+1)/2);\
+    			vec3 color = mix(fog, cScale, f);\
+				fragColor = vec4(color, 1.0);\
+			} else if (eyeZ>100) {\
+				cScale = (finalRim+diffReflA + diffReflB + specReflB + specReflA);\
+    			f = 1-(((eyeZ*0.0003)+1)/2);\
+    			vec3 color = mix(fog, cScale, f);\
+				fragColor = vec4(color, 1.0);\
+			} else if (eyeZ>80) {\
+    			cScale = (finalRim+diffReflA + diffReflB + specReflB + specReflA);\
+    			f = 1-(((eyeZ*0.00003)+1)/2);\
+    			vec3 color = mix(fog, cScale, f);\
+				fragColor = vec4(color, 1.0);\
+			} else if (eyeZ>60) {\
+				cScale = (finalRim+diffReflA + diffReflB + specReflB + specReflA);\
+				f = 1-(((eyeZ*0.000003)+1)/2);\
+    			vec3 color = mix(fog, cScale, f);\
+				fragColor = vec4(color, 1.0);\
+			} else if(eyeZ>40){\
+				cScale = (finalRim+diffReflA + diffReflB + specReflB + specReflA);\
+				f = 1-(((eyeZ*0.0000003)+1)/2);\
+    			vec3 color = mix(fog, cScale, f);\
+				fragColor = vec4(color, 1.0);\
+			} else {\
+				cScale = (diffReflA + diffReflB + specReflB + specReflA);\
+				fragColor=vec4(cScale, 1.0);\
+			}\
 		}";
 	program = makeProgram(vertexCode, fragmentCode);
 	if (program != 0) {
@@ -428,7 +553,7 @@ int initializeShaderProgram(void) {
 		attrLocs[1] = glGetAttribLocation(program, "texCoords");
 		attrLocs[2] = glGetAttribLocation(program, "normal");
 		modelingLoc = glGetUniformLocation(program, "modeling");
-		modelingCameraLoc = glGetUniformLocation(program, "modelingCamera");
+		projLoc = glGetUniformLocation(program, "proj");
 		unifLocs[0] = glGetUniformLocation(program, "specular");
 		textureLocs[0] = glGetUniformLocation(program, "texture0");
 		camPosLoc = glGetUniformLocation(program, "camPos");
@@ -446,6 +571,7 @@ int initializeShaderProgram(void) {
 		textureSdwLoc[0] = glGetUniformLocation(program, "textureSdwA");
 		viewingSdwLoc[1] = glGetUniformLocation(program, "viewingSdwB");
 		textureSdwLoc[1] = glGetUniformLocation(program, "textureSdwB");
+		distFromCam = glGetUniformLocation(program, "camDist");
 	}
 	return (program == 0);
 }
@@ -460,32 +586,22 @@ void render(void) {
 	uniforms and textures. */
 	GLint sdwTextureLocs[1] = {-1};
 	shadowMapRender(&sdwMapA, &sdwProg, &lightA, -100.0, -1.0);
-	sceneRender(&nodeH, identity, identity, sdwProg.modelingLoc, sdwProg.modelingLoc, 0, NULL, NULL, 1, 
-		sdwTextureLocs);
+	sceneRender(&nodeH, identity, identity, identity, sdwProg.modelingLoc, sdwProg.modelingLoc, 0, NULL, NULL, 1, 
+		sdwTextureLocs, -1, -1);
 	shadowMapUnrender();
 	shadowMapRender(&sdwMapB, &sdwProg, &lightB, -100.0, -1.0);
-	sceneRender(&nodeH, identity, identity, sdwProg.modelingLoc, sdwProg.modelingLoc, 0, NULL, NULL, 1, 
-		sdwTextureLocs);
+	sceneRender(&nodeH, identity, identity, identity, sdwProg.modelingLoc, sdwProg.modelingLoc, 0, NULL, NULL, 1, 
+		sdwTextureLocs, -1, -1);
 	shadowMapUnrender();
 	/* Finish preparing the shadow maps, restore the viewport, and begin to 
 	render the scene. */
 	glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glUseProgram(program);
-	GLfloat vec[3];
-	vecOpenGL(3, cam.translation, vec);
-	glUniform3fv(camPosLoc, 1, vec);
-	/* For each light, we have to connect it to the shader program, as always. 
-	For each shadow-casting light, we must also connect its shadow map. */
-	lightRender(&lightA, lightPosLoc[0], lightColLoc[0], lightAttLoc[0], lightDirLoc[0], 
-		lightCosLoc[0]);
-	shadowRender(&sdwMapA, viewingSdwLoc[0], GL_TEXTURE6, 6, textureSdwLoc[0]);
-	lightRender(&lightB, lightPosLoc[1], lightColLoc[1], lightAttLoc[1], lightDirLoc[1], 
-		lightCosLoc[1]);
-	shadowRender(&sdwMapB, viewingSdwLoc[1], GL_TEXTURE7, 7, textureSdwLoc[1]);
+
 	GLuint unifDims[1] = {3};
-	sceneRender(&rootNode, identity, identity, modelingLoc, modelingCameraLoc, 1, unifDims, unifLocs, 0, 
-		textureLocs);
+	sceneRender(&rootNode, identity, identity, identity, modelingLoc, projLoc, 1, unifDims, unifLocs, 0, 
+		textureLocs, camPosLoc, distFromCam);
 
 	shadowUnrender(GL_TEXTURE6);
 	shadowUnrender(GL_TEXTURE7);
@@ -526,6 +642,7 @@ int main(void) {
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
+    glClearColor(0.0, 0.0, 0.4, 1.0);
     if (initializeShaderProgram() != 0)
     	return 3;
     /* Initialize the shadow mapping before the meshes. Why? */
