@@ -9,6 +9,7 @@ Program implementing scene graph
 #define sceneCAMERA 		2
 #define sceneLIGHT 			3
 #define sceneLOD 			4
+#define sceneSWITCH         5
 
 #define sceneCASTSHADOWS 0
 #define sceneNOSHADOWS 1
@@ -48,7 +49,14 @@ struct sceneNode {
 
 	// LOD node
 	GLint *ranges, rangeDim;
+	
+	//used by LOD and switch
 	sceneNode **firstChildMeshes;
+	
+	//Switch node
+	sceneNode **firstChildNodes;
+	GLuint numSwitches;
+	GLuint curSwitch;
 };
 
 /* Initializes a transformation Node that handles rotation and translation for all child nodes.
@@ -157,6 +165,22 @@ int sceneInitializeLOD(sceneNode *node, GLuint unifDim, GLint rangeDim,
 	return 0;
 }
 
+int sceneInitializeSwitch(sceneNode *node, GLuint unifDim, GLuint numSwitches, 
+		sceneNode *firstChildNodes[], sceneNode *nextSibling){
+	node->nodeType = sceneSWITCH;
+    node->unif = (GLdouble *)malloc(unifDim * sizeof(GLdouble));
+	node->numSwitches = numSwitches;
+	node->curSwitch = 0;
+	
+    if (node->unif == NULL)
+        return 1;
+    mat33Identity(node->rotation);
+	vecSet(3, node->translation, 0.0, 0.0, 0.0);
+	node->unifDim = unifDim;
+	node->firstChildNodes = (sceneNode **)malloc(numSwitches * sizeof(sceneNode *));
+	node->nextSibling = nextSibling;
+	return 0;
+}
 
 /* Deallocates the resources backing this scene node. Does not destroy the 
 resources backing the mesh, etc. */
@@ -322,14 +346,39 @@ void sceneRemoveChild(sceneNode *node, sceneNode *child) {
 }
 
 void sceneSetChildArray(sceneNode *node, sceneNode *firstChildMeshes[]){
-	for(int i=0;i<node->rangeDim;i++){
+	int range;
+	
+	if (node->nodeType == sceneLOD) {
+		range = node->rangeDim;
+	} else if (node->nodeType == sceneSWITCH) {
+		range = node->numSwitches;
+	}
+	for(int i = 0; i < range; i += 1){
 		node->firstChildMeshes[i] = firstChildMeshes[i];
 	}	
 }
+
+void sceneSetChildArraySwitch(sceneNode *node, sceneNode *firstChildNodes[]){
+	for(int i = 0; i < node->numSwitches; i += 1){
+		node->firstChildNodes[i] = firstChildNodes[i];
+	}	
+}
+
 void sceneSetRanges(sceneNode *node, GLint *ranges){
 	for (int i=0;i<node->rangeDim;i++){
 		node->ranges[i] = ranges[i];
 	}
+}
+
+void sceneSetSwitch(sceneNode *node, GLuint switchIndex) {
+	node->curSwitch = switchIndex;
+} 
+
+void sceneCycleSwitch(sceneNode *node) {
+	node->curSwitch += 1;
+	if (node->curSwitch == node->numSwitches) node->curSwitch = 0;
+	printf("%d\n", node->curSwitch);
+	fflush(stdout);
 }
 
 void sceneSetOneChild(sceneNode *node, int index, sceneNode *child) {
@@ -371,6 +420,7 @@ void sceneSetUniforms(sceneNode *node, GLuint unifNum, GLuint unifDims[], GLint 
 		unifCount+=unifDims[i];
 	}
 }
+
 void sceneRenderCamera(sceneNode *node, GLint modelingLoc, GLint projLoc,
 		GLuint unifNum, GLuint unifDims[], GLint unifLocs[], 
 		GLdouble m[4][4], GLdouble projection[4][4], GLdouble invCam[4][4], 
@@ -457,6 +507,21 @@ void sceneRenderGeometry(sceneNode *node, GLdouble parent[4][4],
 	sceneUnrenderTextures(node, textureLocs);
 }
 
+void sceneRenderSwitch(sceneNode *node, GLdouble parent[4][4], 
+		GLdouble parentProj[4][4], GLdouble parentCam[4][4], GLint modelingLoc,
+		GLint projLoc, GLuint unifNum, GLuint unifDims[], GLint unifLocs[], 
+		GLdouble m[4][4], GLdouble projection[4][4], GLdouble eyeView[4][4]) {
+	mat44Disect(parent, node->rotation, node->translation);
+	// mat44OpenGL(parent, model);
+	mat44Copy(parent, m);
+	// mat44OpenGL(parentProj, proj);
+	mat44Copy(parentProj, projection);
+	mat44Copy(parentCam, eyeView);
+	
+	
+	sceneSetFirstChild(node, node->firstChildNodes[node->curSwitch]);
+}
+
 void sceneRenderLOD(sceneNode *node, GLdouble parent[4][4], 
 		GLdouble parentProj[4][4], GLdouble parentCam[4][4], GLint modelingLoc,
 		GLint projLoc, GLuint unifNum, GLuint unifDims[], GLint unifLocs[], 
@@ -498,6 +563,8 @@ void sceneRender(sceneNode *node, GLdouble parent[4][4], GLdouble parentProj[4][
 	/* Set the other uniforms.*/
 	sceneSetUniforms(node, unifNum, unifDims, unifLocs);
 	/* Updated */
+	
+	
 	if (node->nodeType==sceneCAMERA){
 		sceneRenderCamera(node, modelingLoc, projLoc, unifNum, 
 			unifDims, unifLocs, m, projection, invCam, camPosLoc);
@@ -510,6 +577,9 @@ void sceneRender(sceneNode *node, GLdouble parent[4][4], GLdouble parentProj[4][
 			invCam);
 	} else if (node->nodeType==sceneLOD){
 		sceneRenderLOD(node, parent, parentProj, parentCam, modelingLoc, 
+			projLoc, unifNum, unifDims, unifLocs, m, projection, invCam);
+	}else if (node->nodeType==sceneSWITCH){
+		sceneRenderSwitch(node, parent, parentProj, parentCam, modelingLoc, 
 			projLoc, unifNum, unifDims, unifLocs, m, projection, invCam);
 	} else {
 		sceneRenderGeometry(node, parent, parentProj, parentCam, modelingLoc,

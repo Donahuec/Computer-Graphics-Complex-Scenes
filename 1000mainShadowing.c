@@ -34,11 +34,12 @@ double getTime(void) {
 
 camCamera cam;
 texTexture texH, texV, texW, texT, texL;
-meshGLMesh meshH, meshV, meshW, meshT, meshTMed, meshTFar, meshL, meshLMed, meshLFar;
+meshGLMesh meshH, meshV, meshW, meshT, meshTMed, meshTFar, meshL, meshLMed, meshLFar, meshCube,
+	meshCubeM, meshCubeS;
 /* Updated */
 sceneNode nodeH, nodeV, nodeW, nodeT, nodeTMed, nodeTFar, nodeL, nodeLMed, nodeLFar,
 	rootNode, transformationNodeT, transformationNodeL, lightNodeOne, lightNodeTwo,
-	lodNodeL, lodNodeT;
+	lodNodeL, lodNodeT, switchNodeT, nodeCube, nodeCubeM, nodeCubeS;
 /* We need just one shadow program, because all of our meshes have the same 
 attribute structure. */
 shadowProgram sdwProg;
@@ -84,6 +85,8 @@ void handleKey(GLFWwindow *window, int key, int scancode, int action,
 			camAddDistance(&cam, -0.5);
 		else if (key == GLFW_KEY_J)
 			camAddDistance(&cam, 0.5);
+		else if (key == GLFW_KEY_S)
+			sceneCycleSwitch(&switchNodeT);
 		/* use shift to alter which light moves */
 		else if (key == GLFW_KEY_Y) {
 			if(shiftIsDown==0){
@@ -260,6 +263,24 @@ int initializeScene(void) {
 	meshGLVAOInitialize(&meshT, 0, attrLocs);
 	meshGLVAOInitialize(&meshT, 1, sdwProg.attrLocs);
 	meshDestroy(&mesh);
+	if (meshInitializeBox(&mesh, 0.0, 10.5, 0.0, 10.5, 30.0, 40.0))
+		return 33;
+	meshGLInitialize(&meshCube, &mesh, 3, attrDims, 2);
+	meshGLVAOInitialize(&meshCube, 0, attrLocs);
+	meshGLVAOInitialize(&meshCube, 1, sdwProg.attrLocs);
+	meshDestroy(&mesh);
+	if (meshInitializeBox(&mesh, 3.0, 7.5, 3.0, 7.5, 33.0, 37.0))
+		return 33;
+	meshGLInitialize(&meshCubeM, &mesh, 3, attrDims, 2);
+	meshGLVAOInitialize(&meshCubeM, 0, attrLocs);
+	meshGLVAOInitialize(&meshCubeM, 1, sdwProg.attrLocs);
+	meshDestroy(&mesh);
+	if (meshInitializeBox(&mesh, 4.0, 6.5, 4.0, 6.5, 34.0, 36.0))
+		return 33;
+	meshGLInitialize(&meshCubeS, &mesh, 3, attrDims, 2);
+	meshGLVAOInitialize(&meshCubeS, 0, attrLocs);
+	meshGLVAOInitialize(&meshCubeS, 1, sdwProg.attrLocs);
+	meshDestroy(&mesh);
 	if (meshInitializeBox(&mesh, -1.0, 0.5, -1.0, 0.5, -2.0, 3.0))
 		return 33;
 	meshGLInitialize(&meshTMed, &mesh, 3, attrDims, 2);
@@ -296,6 +317,12 @@ int initializeScene(void) {
 	// sceneNode **childrenT;
 	// childrenT[0] = &nodeT;
 	// childrenT[1] = &nodeTMed;
+	if (sceneInitializeGeometry(&nodeCube, 3, 1, &meshCube, NULL, NULL) != 0)
+		return 14;
+	if (sceneInitializeGeometry(&nodeCubeM, 3, 1, &meshCubeM, NULL, NULL) != 0)
+		return 14;
+	if (sceneInitializeGeometry(&nodeCubeS, 3, 1, &meshCubeS, NULL, NULL) != 0)
+		return 14;
 	if (sceneInitializeGeometry(&nodeW, 3, 1, &meshW, NULL, NULL) != 0)
 		return 14;
 	if (sceneInitializeGeometry(&nodeL, 3, 1, &meshL, NULL, NULL) != 0)
@@ -317,12 +344,14 @@ int initializeScene(void) {
 		return 44;
 	if (sceneInitializeLOD(&lodNodeT, 3, 3, NULL, NULL, NULL) != 0)
 		return 17;
+	if (sceneInitializeSwitch(&switchNodeT, 3, 6, NULL, NULL) != 0)
+		return 17;
 	if (sceneInitializeTransformation(&transformationNodeT, 
 		3, NULL, NULL, &lodNodeT, &nodeW) != 0)
 		return 11; 
 	if (sceneInitializeGeometry(&nodeV, 3, 1, &meshV, NULL, &transformationNodeT) != 0)
 		return 13;
-	if (sceneInitializeGeometry(&nodeH, 3, 1, &meshH, &nodeV, NULL) != 0)
+	if (sceneInitializeGeometry(&nodeH, 3, 1, &meshH, &nodeV, &switchNodeT) != 0)
 		return 12;
 	if (sceneInitializeLight(&lightNodeOne, 3, &lightB, NULL, &nodeH) != 0)
 		return 14;
@@ -351,11 +380,17 @@ int initializeScene(void) {
 	sceneSetUniform(&lodNodeL, unif);
 	sceneSetUniform(&lodNodeT, unif);
 	sceneSetUniform(&rootNode, unif);
+	sceneSetUniform(&nodeCube, unif);
+	sceneSetUniform(&nodeCubeM, unif);
+	sceneSetUniform(&nodeCubeS, unif);
 	vecSet(3, unif, 1.0, 1.0, 1.0);
 	sceneSetUniform(&nodeW, unif);
 	texTexture *tex;
 	tex = &texH;
 	sceneSetTexture(&nodeH, &tex);
+	sceneSetTexture(&nodeCube, &tex);
+	sceneSetTexture(&nodeCubeM, &tex);
+	sceneSetTexture(&nodeCubeS, &tex);
 	tex = &texV;
 	sceneSetTexture(&nodeV, &tex);
 	tex = &texW;
@@ -381,6 +416,14 @@ int initializeScene(void) {
 	childrenT[1] = &nodeTMed;
 	childrenT[2] = &nodeTFar;
 	sceneSetChildArray(&lodNodeT, childrenT);
+	sceneNode *childrenS[6];
+	childrenS[0] = &nodeCube;
+	childrenS[1] = &nodeCubeM;
+	childrenS[2] = &nodeCubeS;
+	childrenS[3] = NULL;
+	childrenS[4] = &nodeCubeS;
+	childrenS[5] = &nodeCubeM;
+	sceneSetChildArraySwitch(&switchNodeT, childrenS);
 	sceneSetLightLocations(&lightNodeOne, lightPosLoc[0], lightColLoc[0], 
 		lightAttLoc[0], lightDirLoc[0], lightCosLoc[0]);
 	sceneSetShadowLocations(&lightNodeOne, viewingSdwLoc[0], 6, textureSdwLoc[0]);
@@ -513,7 +556,7 @@ int initializeShaderProgram(void) {
 			vec3 specReflB = specIntB * lightBCol * specular;\
     		specReflA = pow(specIntA, shininess) * lightACol * specular;\
     		specReflB = pow(specIntB, shininess) * lightBCol * specular;\
-    		vec3 fog = vec3(0.0, 0.0, 0.4);\
+    		vec3 fog = vec3(0.5, 0.5, 0.5);\
     		vec3 cScale;\
     		float f;\
     		if(eyeZ>120){\
@@ -545,6 +588,8 @@ int initializeShaderProgram(void) {
 				cScale = (diffReflA + diffReflB + specReflB + specReflA);\
 				fragColor=vec4(cScale, 1.0);\
 			}\
+			cScale = (diffReflA + diffReflB + specReflB + specReflA);\
+			fragColor=vec4(cScale, 1.0);\
 		}";
 	program = makeProgram(vertexCode, fragmentCode);
 	if (program != 0) {
