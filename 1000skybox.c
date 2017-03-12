@@ -7,56 +7,111 @@ struct skyboxSkybox {
 	texTexture texBackground;
 };
 
-void skyboxInitializeSkybox(skyboxSkybox *skybox, char *textures[]){
+void skyboxInitializeSkybox(skyboxSkybox *skybox, char *textures[], GLdouble *vertices, 
+	GLint projType){
 	GLuint attrDims[3] = {3, 2, 3};
-	GLdouble skyboxVertices[] = {
-    // Positions          
-	    -100.0f,  100.0f, -100.0f,
-  -100.0f, -100.0f, -100.0f,
-   100.0f, -100.0f, -100.0f,
-   100.0f, -100.0f, -100.0f,
-   100.0f,  100.0f, -100.0f,
-  -100.0f,  100.0f, -100.0f,
-  
-  -100.0f, -100.0f,  100.0f,
-  -100.0f, -100.0f, -100.0f,
-  -100.0f,  100.0f, -100.0f,
-  -100.0f,  100.0f, -100.0f,
-  -100.0f,  100.0f,  100.0f,
-  -100.0f, -100.0f,  100.0f,
-  
-   100.0f, -100.0f, -100.0f,
-   100.0f, -100.0f,  100.0f,
-   100.0f,  100.0f,  100.0f,
-   100.0f,  100.0f,  100.0f,
-   100.0f,  100.0f, -100.0f,
-   100.0f, -100.0f, -100.0f,
-   
-  -100.0f, -100.0f,  100.0f,
-  -100.0f,  100.0f,  100.0f,
-   100.0f,  100.0f,  100.0f,
-   100.0f,  100.0f,  100.0f,
-   100.0f, -100.0f,  100.0f,
-  -100.0f, -100.0f,  100.0f,
-  
-  -100.0f,  100.0f, -100.0f,
-   100.0f,  100.0f, -100.0f,
-   100.0f,  100.0f,  100.0f,
-   100.0f,  100.0f,  100.0f,
-  -100.0f,  100.0f,  100.0f,
-  -100.0f,  100.0f, -100.0f,
-  
-  -100.0f, -100.0f, -100.0f,
-  -100.0f, -100.0f,  100.0f,
-   100.0f, -100.0f, -100.0f,
-   100.0f, -100.0f, -100.0f,
-  -100.0f, -100.0f,  100.0f,
-   100.0f, -100.0f,  100.0f
-	};
+	GLdouble *skyboxVertices;
+	if(vertices != NULL){
+		skyboxVertices = vertices;
+	} else if (projType==camPERSPECTIVE){
+		GLdouble perspectiveVertices[] = {
+	    // Positions          
+		  -0.5f,  0.5f, -0.5f,
+		  -0.5f, -0.5f, -0.5f,
+		   0.5f, -0.5f, -0.5f,
+		   0.5f, -0.5f, -0.5f,
+		   0.5f,  0.5f, -0.5f,
+		  -0.5f,  0.5f, -0.5f,
+		  
+		  -0.5f, -0.5f,  0.5f,
+		  -0.5f, -0.5f, -0.5f,
+		  -0.5f,  0.5f, -0.5f,
+		  -0.5f,  0.5f, -0.5f,
+		  -0.5f,  0.5f,  0.5f,
+		  -0.5f, -0.5f,  0.5f,
+		  
+		   0.5f, -0.5f, -0.5f,
+		   0.5f, -0.5f,  0.5f,
+		   0.5f,  0.5f,  0.5f,
+		   0.5f,  0.5f,  0.5f,
+		   0.5f,  0.5f, -0.5f,
+		   0.5f, -0.5f, -0.5f,
+		   
+		  -0.5f, -0.5f,  0.5f,
+		  -0.5f,  0.5f,  0.5f,
+		   0.5f,  0.5f,  0.5f,
+		   0.5f,  0.5f,  0.5f,
+		   0.5f, -0.5f,  0.5f,
+		  -0.5f, -0.5f,  0.5f,
+		  
+		  -0.5f,  0.5f, -0.5f,
+		   0.5f,  0.5f, -0.5f,
+		   0.5f,  0.5f,  0.5f,
+		   0.5f,  0.5f,  0.5f,
+		  -0.5f,  0.5f,  0.5f,
+		  -0.5f,  0.5f, -0.5f,
+		  
+		  -0.5f, -0.5f, -0.5f,
+		  -0.5f, -0.5f,  0.5f,
+		   0.5f, -0.5f, -0.5f,
+		   0.5f, -0.5f, -0.5f,
+		  -0.5f, -0.5f,  0.5f,
+		   0.5f, -0.5f,  0.5f
+		};
+		skyboxVertices = perspectiveVertices;
+	} else {
+		GLdouble orthographicVertices[] = {
+   		// Positions          
+	      -100.0f,  100.0f, -100.0f,
+		  -100.0f, -100.0f, -100.0f,
+		   100.0f, -100.0f, -100.0f,
+		   100.0f, -100.0f, -100.0f,
+		   100.0f,  100.0f, -100.0f,
+		  -100.0f,  100.0f, -100.0f,
+		  
+		  -100.0f, -100.0f,  100.0f,
+		  -100.0f, -100.0f, -100.0f,
+		  -100.0f,  100.0f, -100.0f,
+		  -100.0f,  100.0f, -100.0f,
+		  -100.0f,  100.0f,  100.0f,
+		  -100.0f, -100.0f,  100.0f,
+		  
+		   100.0f, -100.0f, -100.0f,
+		   100.0f, -100.0f,  100.0f,
+		   100.0f,  100.0f,  100.0f,
+		   100.0f,  100.0f,  100.0f,
+		   100.0f,  100.0f, -100.0f,
+		   100.0f, -100.0f, -100.0f,
+		   
+		  -100.0f, -100.0f,  100.0f,
+		  -100.0f,  100.0f,  100.0f,
+		   100.0f,  100.0f,  100.0f,
+		   100.0f,  100.0f,  100.0f,
+		   100.0f, -100.0f,  100.0f,
+		  -100.0f, -100.0f,  100.0f,
+		  
+		  -100.0f,  100.0f, -100.0f,
+		   100.0f,  100.0f, -100.0f,
+		   100.0f,  100.0f,  100.0f,
+		   100.0f,  100.0f,  100.0f,
+		  -100.0f,  100.0f,  100.0f,
+		  -100.0f,  100.0f, -100.0f,
+		  
+		  -100.0f, -100.0f, -100.0f,
+		  -100.0f, -100.0f,  100.0f,
+		   100.0f, -100.0f, -100.0f,
+		   100.0f, -100.0f, -100.0f,
+		  -100.0f, -100.0f,  100.0f,
+		   100.0f, -100.0f,  100.0f
+		};
+		skyboxVertices = orthographicVertices;
+
+	}
+	
 	glUseProgram(skybox->programBack);
 	glGenBuffers(1, &(skybox->vbo));
 	glBindBuffer(GL_ARRAY_BUFFER, skybox->vbo);
-	glBufferData(GL_ARRAY_BUFFER, 3 * 36 * sizeof(GLdouble), &skyboxVertices, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, 3 * 36 * sizeof(GLdouble), skyboxVertices, GL_STATIC_DRAW);
 	glGenVertexArrays(1, &(skybox->vao));
 	glBindVertexArray(skybox->vao);
 	glBindBuffer(GL_ARRAY_BUFFER, skybox->vbo);
@@ -84,7 +139,13 @@ void skyboxInitializeSkyboxShader(skyboxSkybox *skybox){
 		out vec4 color;\
 		uniform samplerCube skybox;\
 		void main(){\
-		    color = vec4(vec3(texture(skybox, TexCoords)), 1.0);\
+			vec3 fog = vec3(0.0, 0.0, 0.1);\
+			vec3 tex = vec3(texture(skybox, TexCoords));\
+			if(tex[0]<0.1 && tex[1]<0.1 && tex[2]<0.1){\
+		    	color = vec4(mix(tex, fog, 0.9), 1.0);\
+		    } else {\
+		    	color = vec4(tex, 1.0);\
+		    }\
 		}"; 
 	skybox->programBack = makeProgram(vertexCode, fragmentCode);
 	glUseProgram(skybox->programBack);
@@ -94,11 +155,11 @@ void skyboxInitializeSkyboxShader(skyboxSkybox *skybox){
 }
 
 void skyboxSkyboxRender(skyboxSkybox *skybox, sceneNode *node){
-	GLdouble identity[4][4], parent[4][4];
+	GLdouble parent[4][4], rotation[3][3];
 	GLfloat parentFloat[4][4];
-	mat44Identity(identity);
-	glUseProgram(skybox->programBack);
 	GLdouble transl[3] = {0.0, 0.0, 0.0};
+	glUseProgram(skybox->programBack);
+	
 	mat44Combine(node->rotation, transl, parent);
 	mat44OpenGL(parent, parentFloat);
 	glUniformMatrix4fv(skybox->backView, 1, GL_FALSE, (GLfloat *)parentFloat);

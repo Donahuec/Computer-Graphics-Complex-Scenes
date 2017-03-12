@@ -57,7 +57,7 @@ GLint lightPosLoc[2], lightColLoc[2], lightAttLoc[2], lightDirLoc[2], lightCosLo
 GLint camPosLoc;
 GLint viewingSdwLoc[2], textureSdwLoc[2];
 
-skyboxSkybox skybox;
+skyboxSkybox skyboxPersp, skyboxOrtho;
 void handleError(int error, const char *description) {
 	fprintf(stderr, "handleError: %d\n%s\n", error, description);
 }
@@ -191,23 +191,18 @@ int initializeScene(void) {
 	if (texInitializeFile(&texH, "grass.jpg", GL_LINEAR, GL_LINEAR, 
     		GL_REPEAT, GL_REPEAT) != 0)
     	return 1;
-    printf("h\n");
     if (texInitializeFile(&texV, "granite.jpg", GL_LINEAR, GL_LINEAR, 
     		GL_REPEAT, GL_REPEAT) != 0)
     	return 2;
-    printf("o\n");
     if (texInitializeFile(&texW, "water.jpg", GL_LINEAR, GL_LINEAR, 
     		GL_REPEAT, GL_REPEAT) != 0)
     	return 3;
-    printf("l\n");
     if (texInitializeFile(&texT, "trunk.jpg", GL_LINEAR, GL_LINEAR, 
     		GL_REPEAT, GL_REPEAT) != 0)
     	return 4;
-    printf("y\n");
     if (texInitializeFile(&texL, "tree.jpg", GL_LINEAR, GL_LINEAR, 
     		GL_REPEAT, GL_REPEAT) != 0)
     	return 5;
-    printf("b\n");
 	GLuint attrDims[3] = {3, 2, 3};
     double zs[12][12] = {
 		{5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 20.0}, 
@@ -517,7 +512,7 @@ int initializeShaderProgram(void) {
 			vec3 view = normalize(camPos-fragPos);\
 			float rim = 1 - max(dot(view, normalDir), 0.0);\
 			rim = smoothstep(0.6, 1.0, rim);\
-			vec3 finalRim = vec3(0.001, 0.001, 0.2) * vec3(rim, rim, rim);\
+			vec3 finalRim = vec3(0.0, 0.0, 0.2) * vec3(rim, rim, rim);\
 			vec3 diffuse = vec3(texture(texture0, st));\
 			vec3 norDir = normalize(normalDir);\
 	        vec3 camDir = normalize(camPos - fragPos);\
@@ -558,7 +553,7 @@ int initializeShaderProgram(void) {
 			vec3 specReflB = specIntB * lightBCol * specular;\
     		specReflA = pow(specIntA, shininess) * lightACol * specular;\
     		specReflB = pow(specIntB, shininess) * lightBCol * specular;\
-    		vec3 fog = vec3(0.001, 0.001, 0.2);\
+    		vec3 fog = vec3(0.0, 0.0, 0.1);\
     		vec3 cScale;\
     		float f;\
     		if(eyeZ>120){\
@@ -572,17 +567,17 @@ int initializeShaderProgram(void) {
     			vec3 color = mix(fog, cScale, f);\
 				fragColor = vec4(color, 1.0);\
 			} else if (eyeZ>80) {\
-    			cScale = (diffReflA + diffReflB + specReflB + specReflA);\
+    			cScale = (finalRim+diffReflA + diffReflB + specReflB + specReflA);\
     			f = 1-(((eyeZ*0.00003)+1)/2);\
     			vec3 color = mix(fog, cScale, f);\
 				fragColor = vec4(color, 1.0);\
 			} else if (eyeZ>60) {\
-				cScale = (diffReflA + diffReflB + specReflB + specReflA);\
+				cScale = (finalRim+diffReflA + diffReflB + specReflB + specReflA);\
 				f = 1-(((eyeZ*0.000003)+1)/2);\
     			vec3 color = mix(fog, cScale, f);\
 				fragColor = vec4(color, 1.0);\
 			} else if(eyeZ>40){\
-				cScale = (diffReflA + diffReflB + specReflB + specReflA);\
+				cScale = (finalRim+diffReflA + diffReflB + specReflB + specReflA);\
 				f = 1-(((eyeZ*0.0000003)+1)/2);\
     			vec3 color = mix(fog, cScale, f);\
 				fragColor = vec4(color, 1.0);\
@@ -642,13 +637,17 @@ void render(void) {
 	render the scene. */
 	glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	
+	if(cam.projectionType==camPERSPECTIVE){
+		skyboxSkyboxRender(&skyboxPersp, &rootNode);
+	}
 	glUseProgram(program);
 
 	GLuint unifDims[1] = {3};
 	sceneRender(&rootNode, identity, identity, identity, modelingLoc, projLoc, 1, unifDims, unifLocs, 0, 
 		textureLocs, camPosLoc, distFromCam);
-	skyboxSkyboxRender(&skybox, &rootNode);
+	if (cam.projectionType==camORTHOGRAPHIC){
+		skyboxSkyboxRender(&skyboxOrtho, &rootNode);
+	}
 	shadowUnrender(GL_TEXTURE6);
 	shadowUnrender(GL_TEXTURE7);
 }
@@ -691,13 +690,15 @@ int main(void) {
     glClearColor(0.0, 0.0, 0.4, 1.0);
     if (initializeShaderProgram() != 0)
     	return 3;
-    skyboxInitializeSkyboxShader(&skybox);
+    skyboxInitializeSkyboxShader(&skyboxPersp);
+    skyboxInitializeSkyboxShader(&skyboxOrtho);
     /* Initialize the shadow mapping before the meshes. Why? */
 	if (initializeCameraLight() != 0)
 		return 4;
 	char *skyboxTex[] = {"purplenebula_ft.tga", "purplenebula_bk.tga", "purplenebula_up.tga",
 		 "purplenebula_dn.tga", "purplenebula_lf.tga", "purplenebula_rt.tga"};
-	skyboxInitializeSkybox(&skybox, skyboxTex);
+	skyboxInitializeSkybox(&skyboxOrtho, skyboxTex, NULL, 0);
+	skyboxInitializeSkybox(&skyboxPersp, skyboxTex, NULL, 1);
     if (initializeScene() != 0)
     	return 5;
     while (glfwWindowShouldClose(window) == 0) {
