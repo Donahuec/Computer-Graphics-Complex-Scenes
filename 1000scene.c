@@ -439,10 +439,10 @@ void sceneRenderCamera(sceneNode *node, GLint modelingLoc, GLint projLoc,
 	}
 	mat444Multiply(proj, camInv, projCamInv);
 	mat44Copy(projCamInv, projection);
+	mat44Copy(proj, node->projection);
+	mat44Disect(projCamInv, node->rotation, node->translation);
 	mat44Identity(m);
-	// mat44OpenGL(projCamInv, viewing);
 	mat44Copy(camInv, invCam);
-	// glUniformMatrix4fv(modelingLoc, 1, GL_FALSE, (GLfloat *)viewing);
 	vecOpenGL(3, node->cam->translation, vec);
 	glUniform3fv(camPosLoc, 1, vec);
 }
@@ -598,10 +598,6 @@ void sceneRender(sceneNode *node, GLdouble parent[4][4], GLdouble parentProj[4][
 			modelingLoc, projLoc, unifNum, unifDims, unifLocs, index, 
 			textureLocs, camPosLoc, distFromCam);
 	}
-	// if(node->nodeType==sceneGEOMETRY){
-	// 	sceneUnrenderTextures(node, textureLocs);
-	// }
-	/* Updated */
 }
 
 

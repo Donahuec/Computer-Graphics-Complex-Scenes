@@ -33,13 +33,13 @@ double getTime(void) {
 #include "1000scene.c"
 
 camCamera cam;
-texTexture texH, texV, texW, texT, texL;
+texTexture texH, texV, texW, texT, texL, texBackground;
 meshGLMesh meshH, meshV, meshW, meshT, meshTMed, meshTFar, meshL, meshLMed, meshLFar, meshCube,
-	meshCubeM, meshCubeS;
+	meshCubeM, meshCubeS, meshBack;
 /* Updated */
 sceneNode nodeH, nodeV, nodeW, nodeT, nodeTMed, nodeTFar, nodeL, nodeLMed, nodeLFar,
 	rootNode, transformationNodeT, transformationNodeL, lightNodeOne, lightNodeTwo,
-	lodNodeL, lodNodeT, switchNodeT, nodeCube, nodeCubeM, nodeCubeS;
+	lodNodeL, lodNodeT, switchNodeT, nodeCube, nodeCubeM, nodeCubeS, nodeBack;
 /* We need just one shadow program, because all of our meshes have the same 
 attribute structure. */
 shadowProgram sdwProg;
@@ -47,14 +47,15 @@ shadowProgram sdwProg;
 lightLight lightA, lightB;
 shadowMap sdwMapA, sdwMapB;
 /* The main shader program has extra hooks for shadowing. */
-GLuint program;
+GLuint program, programBack, skyboxTex;
 GLint viewingLoc, modelingLoc, projLoc, distFromCam;
+GLint backPosition, backView, backLoc, skybox;
 GLint unifLocs[1], textureLocs[1];
 GLint attrLocs[3];
 GLint lightPosLoc[2], lightColLoc[2], lightAttLoc[2], lightDirLoc[2], lightCosLoc[2];
 GLint camPosLoc;
 GLint viewingSdwLoc[2], textureSdwLoc[2];
-
+GLuint vao, vbo;
 void handleError(int error, const char *description) {
 	fprintf(stderr, "handleError: %d\n%s\n", error, description);
 }
@@ -146,7 +147,7 @@ okay, because the program terminates almost immediately after this function
 returns. */
 int initializeCameraLight(void) {
     GLdouble vec[3] = {30.0, 30.0, 5.0};
-	camSetControls(&cam, camPERSPECTIVE, M_PI / 6.0, 10.0, 768.0, 768.0, 180.0, 
+	camSetControls(&cam, camPERSPECTIVE, M_PI / 6.0, 10.0, 100.0, 100.0, 180.0, 
 		1.3, -2.2, vec);
 	sceneSetCamera(&rootNode, &cam);
 	
@@ -180,6 +181,67 @@ int initializeCameraLight(void) {
 	return 0;
 }
 
+void initializeSkybox(void){
+	GLuint attrDims[3] = {3, 2, 3};
+	GLdouble skyboxVertices[] = {
+    // Positions          
+	    -100.0f,  100.0f, -100.0f,
+  -100.0f, -100.0f, -100.0f,
+   100.0f, -100.0f, -100.0f,
+   100.0f, -100.0f, -100.0f,
+   100.0f,  100.0f, -100.0f,
+  -100.0f,  100.0f, -100.0f,
+  
+  -100.0f, -100.0f,  100.0f,
+  -100.0f, -100.0f, -100.0f,
+  -100.0f,  100.0f, -100.0f,
+  -100.0f,  100.0f, -100.0f,
+  -100.0f,  100.0f,  100.0f,
+  -100.0f, -100.0f,  100.0f,
+  
+   100.0f, -100.0f, -100.0f,
+   100.0f, -100.0f,  100.0f,
+   100.0f,  100.0f,  100.0f,
+   100.0f,  100.0f,  100.0f,
+   100.0f,  100.0f, -100.0f,
+   100.0f, -100.0f, -100.0f,
+   
+  -100.0f, -100.0f,  100.0f,
+  -100.0f,  100.0f,  100.0f,
+   100.0f,  100.0f,  100.0f,
+   100.0f,  100.0f,  100.0f,
+   100.0f, -100.0f,  100.0f,
+  -100.0f, -100.0f,  100.0f,
+  
+  -100.0f,  100.0f, -100.0f,
+   100.0f,  100.0f, -100.0f,
+   100.0f,  100.0f,  100.0f,
+   100.0f,  100.0f,  100.0f,
+  -100.0f,  100.0f,  100.0f,
+  -100.0f,  100.0f, -100.0f,
+  
+  -100.0f, -100.0f, -100.0f,
+  -100.0f, -100.0f,  100.0f,
+   100.0f, -100.0f, -100.0f,
+   100.0f, -100.0f, -100.0f,
+  -100.0f, -100.0f,  100.0f,
+   100.0f, -100.0f,  100.0f
+	};
+	glUseProgram(programBack);
+	glGenBuffers(1, &vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	glBufferData(GL_ARRAY_BUFFER, 3 * 36 * sizeof(GLdouble), &skyboxVertices, GL_STATIC_DRAW);
+	glGenVertexArrays(1, &vao);
+	glBindVertexArray(vao);
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	glEnableVertexAttribArray(backLoc);
+	glVertexAttribPointer(backLoc, 3, GL_DOUBLE, GL_FALSE, 0, NULL);
+	glBindVertexArray(0);
+
+	create_cube_map("purplenebula_ft.tga", "purplenebula_bk.tga", "purplenebula_up.tga",
+		 "purplenebula_dn.tga", "purplenebula_lf.tga", "purplenebula_rt.tga", &texBackground);
+}
+
 /* Returns 0 on success, non-zero on failure. Warning: If initialization fails 
 midway through, then does not properly deallocate all resources. But that's 
 okay, because the program terminates almost immediately after this function 
@@ -188,18 +250,23 @@ int initializeScene(void) {
 	if (texInitializeFile(&texH, "grass.jpg", GL_LINEAR, GL_LINEAR, 
     		GL_REPEAT, GL_REPEAT) != 0)
     	return 1;
+    printf("h\n");
     if (texInitializeFile(&texV, "granite.jpg", GL_LINEAR, GL_LINEAR, 
     		GL_REPEAT, GL_REPEAT) != 0)
     	return 2;
+    printf("o\n");
     if (texInitializeFile(&texW, "water.jpg", GL_LINEAR, GL_LINEAR, 
     		GL_REPEAT, GL_REPEAT) != 0)
     	return 3;
+    printf("l\n");
     if (texInitializeFile(&texT, "trunk.jpg", GL_LINEAR, GL_LINEAR, 
     		GL_REPEAT, GL_REPEAT) != 0)
     	return 4;
+    printf("y\n");
     if (texInitializeFile(&texL, "tree.jpg", GL_LINEAR, GL_LINEAR, 
     		GL_REPEAT, GL_REPEAT) != 0)
     	return 5;
+    printf("b\n");
 	GLuint attrDims[3] = {3, 2, 3};
     double zs[12][12] = {
 		{5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 20.0}, 
@@ -311,12 +378,6 @@ int initializeScene(void) {
 	meshGLVAOInitialize(&meshLFar, 0, attrLocs);
 	meshGLVAOInitialize(&meshLFar, 1, sdwProg.attrLocs);
 	meshDestroy(&mesh);
-	// sceneNode **childrenL;
-	// childrenL[0] = &nodeL;
-	// childrenL[1] = &nodeLMed;
-	// sceneNode **childrenT;
-	// childrenT[0] = &nodeT;
-	// childrenT[1] = &nodeTMed;
 	if (sceneInitializeGeometry(&nodeCube, 3, 1, &meshCube, NULL, NULL) != 0)
 		return 14;
 	if (sceneInitializeGeometry(&nodeCubeM, 3, 1, &meshCubeM, NULL, NULL) != 0)
@@ -515,7 +576,7 @@ int initializeShaderProgram(void) {
 			vec3 view = normalize(camPos-fragPos);\
 			float rim = 1 - max(dot(view, normalDir), 0.0);\
 			rim = smoothstep(0.6, 1.0, rim);\
-			vec3 finalRim = vec3(0.0, 0.0, 0.4) * vec3(rim, rim, rim);\
+			vec3 finalRim = vec3(0.001, 0.001, 0.2) * vec3(rim, rim, rim);\
 			vec3 diffuse = vec3(texture(texture0, st));\
 			vec3 norDir = normalize(normalDir);\
 	        vec3 camDir = normalize(camPos - fragPos);\
@@ -556,7 +617,7 @@ int initializeShaderProgram(void) {
 			vec3 specReflB = specIntB * lightBCol * specular;\
     		specReflA = pow(specIntA, shininess) * lightACol * specular;\
     		specReflB = pow(specIntB, shininess) * lightBCol * specular;\
-    		vec3 fog = vec3(0.5, 0.5, 0.5);\
+    		vec3 fog = vec3(0.001, 0.001, 0.2);\
     		vec3 cScale;\
     		float f;\
     		if(eyeZ>120){\
@@ -570,17 +631,17 @@ int initializeShaderProgram(void) {
     			vec3 color = mix(fog, cScale, f);\
 				fragColor = vec4(color, 1.0);\
 			} else if (eyeZ>80) {\
-    			cScale = (finalRim+diffReflA + diffReflB + specReflB + specReflA);\
+    			cScale = (diffReflA + diffReflB + specReflB + specReflA);\
     			f = 1-(((eyeZ*0.00003)+1)/2);\
     			vec3 color = mix(fog, cScale, f);\
 				fragColor = vec4(color, 1.0);\
 			} else if (eyeZ>60) {\
-				cScale = (finalRim+diffReflA + diffReflB + specReflB + specReflA);\
+				cScale = (diffReflA + diffReflB + specReflB + specReflA);\
 				f = 1-(((eyeZ*0.000003)+1)/2);\
     			vec3 color = mix(fog, cScale, f);\
 				fragColor = vec4(color, 1.0);\
 			} else if(eyeZ>40){\
-				cScale = (finalRim+diffReflA + diffReflB + specReflB + specReflA);\
+				cScale = (diffReflA + diffReflB + specReflB + specReflA);\
 				f = 1-(((eyeZ*0.0000003)+1)/2);\
     			vec3 color = mix(fog, cScale, f);\
 				fragColor = vec4(color, 1.0);\
@@ -588,8 +649,6 @@ int initializeShaderProgram(void) {
 				cScale = (diffReflA + diffReflB + specReflB + specReflA);\
 				fragColor=vec4(cScale, 1.0);\
 			}\
-			cScale = (diffReflA + diffReflB + specReflB + specReflA);\
-			fragColor=vec4(cScale, 1.0);\
 		}";
 	program = makeProgram(vertexCode, fragmentCode);
 	if (program != 0) {
@@ -620,6 +679,52 @@ int initializeShaderProgram(void) {
 	}
 	return (program == 0);
 }
+void initializeSkyboxShader(void){
+	GLchar vertexCode[] = "\
+		#version 140\n\
+		in vec3 position;\
+		out vec3 TexCoords;\
+		uniform mat4 projectionView;\
+		void main(){\
+		    gl_Position =  projectionView * vec4(position, 1.0);\
+		    TexCoords = position;\
+		}"; 
+	GLchar fragmentCode[] = "\
+		#version 140\n\
+		in vec3 TexCoords;\
+		out vec4 color;\
+		uniform samplerCube skybox;\
+		void main(){\
+		    color = vec4(vec3(texture(skybox, TexCoords)), 1.0);\
+		}"; 
+	programBack = makeProgram(vertexCode, fragmentCode);
+	glUseProgram(programBack);
+	backLoc = glGetAttribLocation(programBack, "position");
+	backView = glGetUniformLocation(programBack, "projectionView");
+	skybox = glGetUniformLocation(programBack, "skybox");
+}
+
+void skyboxRender(void){
+	GLdouble identity[4][4], parent[4][4];
+	GLfloat parentFloat[4][4];
+	mat44Identity(identity);
+	glUseProgram(programBack);
+	GLdouble transl[3] = {0.0, 0.0, 0.0};
+	mat44Combine(rootNode.rotation, transl, parent);
+	mat44OpenGL(parent, parentFloat);
+	glUniformMatrix4fv(backView, 1, GL_FALSE, (GLfloat *)parentFloat);
+	glDepthMask(GL_FALSE);
+	
+	glActiveTexture(GL_TEXTURE0);
+	glEnable(GL_TEXTURE_2D);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, texBackground.openGL);
+	glUniform1i(skybox, 0);
+	glEnableVertexAttribArray(backLoc);
+	glBindVertexArray(vao);
+	glDrawArrays(GL_TRIANGLES, 0, 36);
+	glDepthMask(GL_TRUE);
+	glBindVertexArray(0);
+}
 
 void render(void) {
 	GLdouble identity[4][4];
@@ -631,23 +736,24 @@ void render(void) {
 	uniforms and textures. */
 	GLint sdwTextureLocs[1] = {-1};
 	shadowMapRender(&sdwMapA, &sdwProg, &lightA, -100.0, -1.0);
-	sceneRender(&nodeH, identity, identity, identity, sdwProg.modelingLoc, sdwProg.modelingLoc, 0, NULL, NULL, 1, 
+	sceneRender(&rootNode, identity, identity, identity, sdwProg.modelingLoc, sdwProg.modelingLoc, 0, NULL, NULL, 1, 
 		sdwTextureLocs, -1, -1);
 	shadowMapUnrender();
 	shadowMapRender(&sdwMapB, &sdwProg, &lightB, -100.0, -1.0);
-	sceneRender(&nodeH, identity, identity, identity, sdwProg.modelingLoc, sdwProg.modelingLoc, 0, NULL, NULL, 1, 
+	sceneRender(&rootNode, identity, identity, identity, sdwProg.modelingLoc, sdwProg.modelingLoc, 0, NULL, NULL, 1, 
 		sdwTextureLocs, -1, -1);
 	shadowMapUnrender();
 	/* Finish preparing the shadow maps, restore the viewport, and begin to 
 	render the scene. */
 	glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	skyboxRender();
 	glUseProgram(program);
 
 	GLuint unifDims[1] = {3};
 	sceneRender(&rootNode, identity, identity, identity, modelingLoc, projLoc, 1, unifDims, unifLocs, 0, 
 		textureLocs, camPosLoc, distFromCam);
-
+	
 	shadowUnrender(GL_TEXTURE6);
 	shadowUnrender(GL_TEXTURE7);
 }
@@ -690,9 +796,11 @@ int main(void) {
     glClearColor(0.0, 0.0, 0.4, 1.0);
     if (initializeShaderProgram() != 0)
     	return 3;
+    initializeSkyboxShader();
     /* Initialize the shadow mapping before the meshes. Why? */
 	if (initializeCameraLight() != 0)
 		return 4;
+	initializeSkybox();
     if (initializeScene() != 0)
     	return 5;
     while (glfwWindowShouldClose(window) == 0) {
