@@ -439,7 +439,6 @@ void sceneRenderCamera(sceneNode *node, GLint modelingLoc, GLint projLoc,
 	}
 	mat444Multiply(proj, camInv, projCamInv);
 	mat44Copy(projCamInv, projection);
-	mat44Copy(proj, node->projection);
 	mat44Disect(projCamInv, node->rotation, node->translation);
 	mat44Identity(m);
 	mat44Copy(camInv, invCam);
