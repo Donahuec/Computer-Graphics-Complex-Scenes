@@ -31,11 +31,12 @@ double getTime(void) {
 #include "560light.c"
 #include "590shadow.c"
 #include "1000scene.c"
+#include "1000skybox.c"
 
 camCamera cam;
-texTexture texH, texV, texW, texT, texL, texBackground;
+texTexture texH, texV, texW, texT, texL; 
 meshGLMesh meshH, meshV, meshW, meshT, meshTMed, meshTFar, meshL, meshLMed, meshLFar, meshCube,
-	meshCubeM, meshCubeS, meshBack;
+	meshCubeM, meshCubeS; 
 /* Updated */
 sceneNode nodeH, nodeV, nodeW, nodeT, nodeTMed, nodeTFar, nodeL, nodeLMed, nodeLFar,
 	rootNode, transformationNodeT, transformationNodeL, lightNodeOne, lightNodeTwo,
@@ -47,15 +48,16 @@ shadowProgram sdwProg;
 lightLight lightA, lightB;
 shadowMap sdwMapA, sdwMapB;
 /* The main shader program has extra hooks for shadowing. */
-GLuint program, programBack, skyboxTex;
+GLuint program;
 GLint viewingLoc, modelingLoc, projLoc, distFromCam;
-GLint backPosition, backView, backLoc, skybox;
+
 GLint unifLocs[1], textureLocs[1];
 GLint attrLocs[3];
 GLint lightPosLoc[2], lightColLoc[2], lightAttLoc[2], lightDirLoc[2], lightCosLoc[2];
 GLint camPosLoc;
 GLint viewingSdwLoc[2], textureSdwLoc[2];
-GLuint vao, vbo;
+
+skyboxSkybox skybox;
 void handleError(int error, const char *description) {
 	fprintf(stderr, "handleError: %d\n%s\n", error, description);
 }
@@ -179,67 +181,6 @@ int initializeCameraLight(void) {
 	if (shadowMapInitialize(&sdwMapB, 1024, 1024) != 0)
 		return 3;
 	return 0;
-}
-
-void initializeSkybox(void){
-	GLuint attrDims[3] = {3, 2, 3};
-	GLdouble skyboxVertices[] = {
-    // Positions          
-	    -100.0f,  100.0f, -100.0f,
-  -100.0f, -100.0f, -100.0f,
-   100.0f, -100.0f, -100.0f,
-   100.0f, -100.0f, -100.0f,
-   100.0f,  100.0f, -100.0f,
-  -100.0f,  100.0f, -100.0f,
-  
-  -100.0f, -100.0f,  100.0f,
-  -100.0f, -100.0f, -100.0f,
-  -100.0f,  100.0f, -100.0f,
-  -100.0f,  100.0f, -100.0f,
-  -100.0f,  100.0f,  100.0f,
-  -100.0f, -100.0f,  100.0f,
-  
-   100.0f, -100.0f, -100.0f,
-   100.0f, -100.0f,  100.0f,
-   100.0f,  100.0f,  100.0f,
-   100.0f,  100.0f,  100.0f,
-   100.0f,  100.0f, -100.0f,
-   100.0f, -100.0f, -100.0f,
-   
-  -100.0f, -100.0f,  100.0f,
-  -100.0f,  100.0f,  100.0f,
-   100.0f,  100.0f,  100.0f,
-   100.0f,  100.0f,  100.0f,
-   100.0f, -100.0f,  100.0f,
-  -100.0f, -100.0f,  100.0f,
-  
-  -100.0f,  100.0f, -100.0f,
-   100.0f,  100.0f, -100.0f,
-   100.0f,  100.0f,  100.0f,
-   100.0f,  100.0f,  100.0f,
-  -100.0f,  100.0f,  100.0f,
-  -100.0f,  100.0f, -100.0f,
-  
-  -100.0f, -100.0f, -100.0f,
-  -100.0f, -100.0f,  100.0f,
-   100.0f, -100.0f, -100.0f,
-   100.0f, -100.0f, -100.0f,
-  -100.0f, -100.0f,  100.0f,
-   100.0f, -100.0f,  100.0f
-	};
-	glUseProgram(programBack);
-	glGenBuffers(1, &vbo);
-	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	glBufferData(GL_ARRAY_BUFFER, 3 * 36 * sizeof(GLdouble), &skyboxVertices, GL_STATIC_DRAW);
-	glGenVertexArrays(1, &vao);
-	glBindVertexArray(vao);
-	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	glEnableVertexAttribArray(backLoc);
-	glVertexAttribPointer(backLoc, 3, GL_DOUBLE, GL_FALSE, 0, NULL);
-	glBindVertexArray(0);
-
-	create_cube_map("purplenebula_ft.tga", "purplenebula_bk.tga", "purplenebula_up.tga",
-		 "purplenebula_dn.tga", "purplenebula_lf.tga", "purplenebula_rt.tga", &texBackground);
 }
 
 /* Returns 0 on success, non-zero on failure. Warning: If initialization fails 
@@ -679,52 +620,6 @@ int initializeShaderProgram(void) {
 	}
 	return (program == 0);
 }
-void initializeSkyboxShader(void){
-	GLchar vertexCode[] = "\
-		#version 140\n\
-		in vec3 position;\
-		out vec3 TexCoords;\
-		uniform mat4 projectionView;\
-		void main(){\
-		    gl_Position =  projectionView * vec4(position, 1.0);\
-		    TexCoords = position;\
-		}"; 
-	GLchar fragmentCode[] = "\
-		#version 140\n\
-		in vec3 TexCoords;\
-		out vec4 color;\
-		uniform samplerCube skybox;\
-		void main(){\
-		    color = vec4(vec3(texture(skybox, TexCoords)), 1.0);\
-		}"; 
-	programBack = makeProgram(vertexCode, fragmentCode);
-	glUseProgram(programBack);
-	backLoc = glGetAttribLocation(programBack, "position");
-	backView = glGetUniformLocation(programBack, "projectionView");
-	skybox = glGetUniformLocation(programBack, "skybox");
-}
-
-void skyboxRender(void){
-	GLdouble identity[4][4], parent[4][4];
-	GLfloat parentFloat[4][4];
-	mat44Identity(identity);
-	glUseProgram(programBack);
-	GLdouble transl[3] = {0.0, 0.0, 0.0};
-	mat44Combine(rootNode.rotation, transl, parent);
-	mat44OpenGL(parent, parentFloat);
-	glUniformMatrix4fv(backView, 1, GL_FALSE, (GLfloat *)parentFloat);
-	glDepthMask(GL_FALSE);
-	
-	glActiveTexture(GL_TEXTURE0);
-	glEnable(GL_TEXTURE_2D);
-	glBindTexture(GL_TEXTURE_CUBE_MAP, texBackground.openGL);
-	glUniform1i(skybox, 0);
-	glEnableVertexAttribArray(backLoc);
-	glBindVertexArray(vao);
-	glDrawArrays(GL_TRIANGLES, 0, 36);
-	glDepthMask(GL_TRUE);
-	glBindVertexArray(0);
-}
 
 void render(void) {
 	GLdouble identity[4][4];
@@ -747,13 +642,13 @@ void render(void) {
 	render the scene. */
 	glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	skyboxRender();
+	
 	glUseProgram(program);
 
 	GLuint unifDims[1] = {3};
 	sceneRender(&rootNode, identity, identity, identity, modelingLoc, projLoc, 1, unifDims, unifLocs, 0, 
 		textureLocs, camPosLoc, distFromCam);
-	
+	skyboxSkyboxRender(&skybox, &rootNode);
 	shadowUnrender(GL_TEXTURE6);
 	shadowUnrender(GL_TEXTURE7);
 }
@@ -796,11 +691,13 @@ int main(void) {
     glClearColor(0.0, 0.0, 0.4, 1.0);
     if (initializeShaderProgram() != 0)
     	return 3;
-    initializeSkyboxShader();
+    skyboxInitializeSkyboxShader(&skybox);
     /* Initialize the shadow mapping before the meshes. Why? */
 	if (initializeCameraLight() != 0)
 		return 4;
-	initializeSkybox();
+	char *skyboxTex[] = {"purplenebula_ft.tga", "purplenebula_bk.tga", "purplenebula_up.tga",
+		 "purplenebula_dn.tga", "purplenebula_lf.tga", "purplenebula_rt.tga"};
+	skyboxInitializeSkybox(&skybox, skyboxTex);
     if (initializeScene() != 0)
     	return 5;
     while (glfwWindowShouldClose(window) == 0) {
