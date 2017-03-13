@@ -89,9 +89,9 @@ void handleKey(GLFWwindow *window, int key, int scancode, int action,
 		else if (key == GLFW_KEY_K)
 			camAddPhi(&cam, 0.1);
 		else if (key == GLFW_KEY_U)
-			camAddDistance(&cam, -0.5);
+			camAddDistance(&cam, -2.5);
 		else if (key == GLFW_KEY_J)
-			camAddDistance(&cam, 0.5);
+			camAddDistance(&cam, 2.5);
 		else if (key == GLFW_KEY_S)
 			/* use the s key to cycle through the switch node options*/
 			sceneCycleSwitch(&switchNodeT);
@@ -199,9 +199,9 @@ int initializeCameraLight(void) {
 	lightSetType(&lightA, lightOMNI);
 	lightSetType(&lightB, lightSPOT);
 
-	vecSet(3, vec, 55.0, 10.0, 20.0);
+	vecSet(3, vec, 55.0, 60.0, 70.0);
 	lightShineFrom(&lightA, vec, M_PI * 3.0 / 4.0, M_PI * 3.0 / 4.0);
-	vecSet(3, vec, 45.0, 0.0, 20.0);
+	vecSet(3, vec, 45.0, 6.0, 70.0);
 	lightShineFrom(&lightB, vec, M_PI * 3.0 / 4.0, M_PI * 3.0 / 4.0);
 
 	/* one light red, one green */
@@ -631,8 +631,6 @@ int initializeShaderProgram(void) {
 			float specIntA = dot(refDirA, camDir);\
 			if (dot(lightAAim, -litDirA) < lightACos)\
 				diffIntA = 0.0;\
-			else\
-				diffIntA = 1.0;\
 			if (diffIntA <= 0.0 || specIntA <= 0.0)\
 	            specIntA = 0.0;\
 			float sdwA = textureProj(textureSdwA, fragSdwA);\
@@ -648,8 +646,6 @@ int initializeShaderProgram(void) {
 			float specIntB = dot(refDirB, camDir);\
 			if (dot(lightBAim, -litDirB) < lightBCos)\
 				diffIntB = 0.0;\
-			else\
-				diffIntB = 1.0;\
 			if (diffIntB <= 0.0 || specIntB <= 0.0)\
 	            specIntB = 0.0;\
 			float sdwB = textureProj(textureSdwB, fragSdwB);\
