@@ -404,11 +404,7 @@ int initializeShaderProgram(void) {
 			vec3 diffReflTwo = max(0.2, diffIntTwo) * lightColTwo * diffuseTwo;\
 			vec3 specRefl = pow(specInt/a, shininess) * lightCol * specular;\
 			vec3 specReflTwo = pow(specIntTwo/aTwo, shininess) * lightColTwo * specular;\
-			if (specular[0] != 1.0){\
-			fragColor = vec4(1.0,1.0,1.0, 1.0);\
-				} else {\
 			fragColor = vec4(diffRefl + specRefl+diffReflTwo + specReflTwo, 1.0);\
-				}\
 		}";
 	program = makeProgram(vertexCode, fragmentCode);
 	if (program != 0) {

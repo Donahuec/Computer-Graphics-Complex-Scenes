@@ -39,7 +39,10 @@ meshGLMesh meshH, meshV, meshW, meshT, meshTMed, meshTFar, meshL, meshLMed, mesh
 	meshCubeM, meshCubeS; 
 /* Updated */
 sceneNode nodeH, nodeV, nodeW, nodeT, nodeTMed, nodeTFar, nodeL, nodeLMed, nodeLFar,
-	rootNode, transformationNodeT, transformationNodeL, lightNodeOne, lightNodeTwo,
+	rootNode, transformationNodeT, transformationNodeL,
+	transformationNodeT2, transformationNodeL2,
+	transformationNodeT3, transformationNodeL3,
+	lightNodeOne, lightNodeTwo,
 	lodNodeL, lodNodeT, switchNodeT, nodeCube, nodeCubeM, nodeCubeS, nodeBack;
 /* We need just one shadow program, because all of our meshes have the same 
 attribute structure. */
@@ -141,7 +144,44 @@ void handleKey(GLFWwindow *window, int key, int scancode, int action,
 				vec[0] -= 1.0;
 				lightSetTranslation(&lightB, vec);
 			}
+		} else if (key == GLFW_KEY_C) {
+			if(shiftIsDown==0){
+				GLdouble vec[3];
+				vecCopy(3, cam.target, vec);
+				vec[0] -= 1.0;
+				camSetTarget(&cam, vec);
+			} else {
+				GLdouble vec[3];
+				vecCopy(3, cam.target, vec);
+				vec[0] += 1.0;
+				camSetTarget(&cam, vec);
+			}
+		} else if (key == GLFW_KEY_V) {
+			if(shiftIsDown==0){
+				GLdouble vec[3];
+				vecCopy(3, cam.target, vec);
+				vec[1] -= 1.0;
+				camSetTarget(&cam, vec);
+			} else {
+				GLdouble vec[3];
+				vecCopy(3, cam.target, vec);
+				vec[1] += 1.0;
+				camSetTarget(&cam, vec);
+			}
+		} else if (key == GLFW_KEY_B) {
+			if(shiftIsDown==0){
+				GLdouble vec[3];
+				vecCopy(3, cam.target, vec);
+				vec[2] -= 1.0;
+				camSetTarget(&cam, vec);
+			} else {
+				GLdouble vec[3];
+				vecCopy(3, cam.target, vec);
+				vec[2] += 1.0;
+				camSetTarget(&cam, vec);
+			}
 		}
+		vecPrint(3, cam.target);
 	}
 }
 
@@ -150,12 +190,13 @@ midway through, then does not properly deallocate all resources. But that's
 okay, because the program terminates almost immediately after this function 
 returns. */
 int initializeCameraLight(void) {
-    GLdouble vec[3] = {30.0, 30.0, 5.0};
+    // GLdouble vec[3] = {50.0, 30.0, 5.0};
+    GLdouble vec[3] = {50.0, 160.0, 7.0};
 	camSetControls(&cam, camPERSPECTIVE, M_PI / 6.0, 10.0, 100.0, 100.0, 180.0, 
-		1.3, -2.2, vec);
+		1.3, -1.5, vec);
 	sceneSetCamera(&rootNode, &cam);
 	
-	lightSetType(&lightA, lightSPOT);
+	lightSetType(&lightA, lightOMNI);
 	lightSetType(&lightB, lightSPOT);
 
 	vecSet(3, vec, 55.0, 10.0, 20.0);
@@ -173,7 +214,7 @@ int initializeCameraLight(void) {
 	lightSetAttenuation(&lightA, vec);
 	lightSetAttenuation(&lightB, vec);
 
-	lightSetSpotAngle(&lightA, M_PI / 4.0);
+	// lightSetSpotAngle(&lightA, M_PI/2.0);
 	lightSetSpotAngle(&lightB, M_PI / 3.0);
 	/* Configure shadow mapping. */
 	if (shadowProgramInitialize(&sdwProg, 3) != 0)
@@ -184,6 +225,7 @@ int initializeCameraLight(void) {
 		return 3;
 	return 0;
 }
+
 
 /* Returns 0 on success, non-zero on failure. Warning: If initialization fails 
 midway through, then does not properly deallocate all resources. But that's 
@@ -208,36 +250,60 @@ int initializeScene(void) {
     	return 5;
 	/*init attrs*/
 	GLuint attrDims[3] = {3, 2, 3};
-    double zs[12][12] = {
-		{5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 20.0}, 
-		{5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 20.0, 25.0}, 
-		{5.0, 5.0, 10.0, 12.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 20.0, 25.0}, 
-		{5.0, 5.0, 10.0, 10.0, 5.0, 5.0, 5.0, 5.0, 5.0, 20.0, 25.0, 27.0}, 
-		{0.0, 0.0, 5.0, 5.0, 5.0, 0.0, 0.0, 0.0, 0.0, 20.0, 20.0, 25.0}, 
-		{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 20.0, 25.0}, 
-		{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0}, 
-		{0.0, 0.0, 0.0, 0.0, 0.0, 5.0, 5.0, 0.0, 0.0, 0.0, 0.0, 0.0}, 
-		{0.0, 0.0, 0.0, 0.0, 0.0, 5.0, 7.0, 0.0, 0.0, 0.0, 0.0, 0.0}, 
-		{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 20.0, 20.0}, 
-		{5.0, 5.0, 5.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 20.0, 20.0, 20.0}, 
-		{10.0, 10.0, 5.0, 5.0, 0.0, 0.0, 0.0, 5.0, 10.0, 15.0, 20.0, 25.0}};
-	double ws[12][12] = {
-		{1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0}, 
-		{1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0}, 
-		{1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0}, 
-		{1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0}, 
-		{1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0}, 
-		{1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0}, 
-		{1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0}, 
-		{1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0}, 
-		{1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0}, 
-		{1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0}, 
-		{1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0}, 
-		{1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0}};
+    double zs[24][38] = {
+		{5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 7.0, 7.0, 5.0, 5.0}, 
+		{5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 20.0, 20.0, 20.0, 25.0, 25.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 7.0, 7.0, 5.0, 5.0}, 
+		{5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 10.0, 10.0, 10.0, 12.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 20.0, 20.0, 25.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 7.0, 7.0, 5.0, 5.0}, 
+		{5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 10.0, 10.0, 10.0, 10.0, 5.0, 5.0, 5.0, 20.0, 25.0, 25.0, 25.0, 27.0, 27.0, 27.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 7.0, 7.0, 5.0, 5.0}, 
+		{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 5.0, 5.0, 5.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 20.0, 20.0, 20.0, 20.0, 25.0, 25.0, 25.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 7.0, 7.0, 5.0, 5.0}, 
+		{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 7.0, 7.0, 20.0, 20.0, 25.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 7.0, 7.0, 5.0, 5.0}, 
+		{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 5.0, 5.0, 7.0, 7.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 7.0, 7.0, 5.0, 5.0}, 
+		{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 5.0, 7.0, 10.0, 10.0, 15.0, 15.0, 20.0, 20.0, 25.0, 30.0, 35.0, 30.0, 25.0, 20.0, 20.0, 15.0, 15.0, 10.0, 10.0, 7.0, 5.0}, 
+		{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 5.0, 7.0, 10.0, 10.0, 15.0, 17.0, 20.0, 20.0, 25.0, 30.0, 35.0, 30.0, 25.0, 20.0, 20.0, 15.0, 15.0, 10.0, 10.0, 7.0, 5.0}, 
+		{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 5.0, 7.0, 10.0, 10.0, 15.0, 15.0, 20.0, 20.0, 25.0, 30.0, 35.0, 30.0, 25.0, 20.0, 20.0, 15.0, 15.0, 10.0, 10.0, 7.0, 5.0}, 
+		{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 5.0, 7.0, 10.0, 10.0, 15.0, 17.0, 20.0, 20.0, 25.0, 30.0, 35.0, 30.0, 25.0, 20.0, 20.0, 15.0, 15.0, 10.0, 10.0, 7.0, 5.0}, 
+		{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 5.0, 7.0, 10.0, 10.0, 15.0, 15.0, 20.0, 20.0, 25.0, 30.0, 35.0, 30.0, 25.0, 20.0, 20.0, 15.0, 15.0, 10.0, 10.0, 7.0, 5.0}, 
+		{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 5.0, 7.0, 7.0, 5.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 7.0, 7.0, 5.0, 5.0}, 
+		{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 5.0, 5.0, 5.0, 7.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 7.0, 7.0, 5.0, 5.0}, 
+		{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 5.0, 7.0, 7.0, 5.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 7.0, 7.0, 5.0, 5.0}, 
+		{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 7.0, 5.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 7.0, 7.0, 5.0, 5.0}, 
+		{5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 7.0, 7.0, 5.0, 5.0}, 
+		{10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 5.0, 10.0, 15.0, 20.0, 20.0, 20.0, 20.0, 25.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 7.0, 7.0, 5.0, 5.0},
+		{10.0, 10.0, 10.0, 10.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 0.0, 0.0, 0.0, 5.0, 10.0, 15.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 25.0, 25.0, 25.0, 30.0, 30.0, 35.0, 30.0, 25.0, 20.0, 20.0, 15.0, 15.0, 10.0, 10.0, 7.0, 5.0},
+		{10.0, 10.0, 10.0, 10.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 0.0, 0.0, 0.0, 5.0, 10.0, 15.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 25.0, 25.0, 25.0, 30.0, 30.0, 35.0, 30.0, 25.0, 20.0, 20.0, 15.0, 15.0, 10.0, 10.0, 7.0, 5.0},
+		{10.0, 10.0, 10.0, 10.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 0.0, 0.0, 0.0, 5.0, 10.0, 15.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 25.0, 25.0, 25.0, 30.0, 30.0, 35.0, 30.0, 25.0, 20.0, 20.0, 15.0, 15.0, 10.0, 10.0, 7.0, 5.0},
+		{5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 7.0, 7.0, 5.0, 5.0},
+		{5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 7.0, 7.0, 5.0, 5.0},
+		{5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 7.0, 7.0, 5.0, 5.0}};
+	double ws[24][38] = {
+		{1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0}, 
+		{1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0},
+		{1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0},
+		{1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0}, 
+		{1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0},
+		{1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0},
+		{1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0}, 
+		{1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0},
+		{1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0},
+		{1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0}, 
+		{1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0},
+		{1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0},
+		{1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0}, 
+		{1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0},
+		{1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0},
+		{1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0}, 
+		{1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0},
+		{1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0},
+		{1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0}, 
+		{1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0},
+		{1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0},
+		{1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0}, 
+		{1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0},
+		{1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0}};
 		
 	/*init meshes*/
 	meshMesh mesh, meshLand;
-	if (meshInitializeLandscape(&meshLand, 12, 12, 5.0, (double *)zs) != 0)
+	if (meshInitializeLandscape(&meshLand, 24, 38, 5.0, (double *)zs) != 0)
 		return 6;
 	if (meshInitializeDissectedLandscape(&mesh, &meshLand, M_PI / 3.0, 1) != 0)
 		return 7;
@@ -261,7 +327,7 @@ int initializeScene(void) {
 	meshGLVAOInitialize(&meshV, 0, attrLocs);
 	meshGLVAOInitialize(&meshV, 1, sdwProg.attrLocs);
 	meshDestroy(&mesh);
-	if (meshInitializeLandscape(&mesh, 12, 12, 5.0, (double *)ws) != 0)
+	if (meshInitializeLandscape(&mesh, 24, 38, 5.0, (double *)ws) != 0)
 		return 9;
 	/*Water*/
 	meshGLInitialize(&meshW, &mesh, 3, attrDims, 2);
@@ -342,6 +408,12 @@ int initializeScene(void) {
 		return 25;
 	if (sceneInitializeLOD(&lodNodeL, 3, 3, NULL, NULL, NULL) != 0)
 		return 26;
+	if (sceneInitializeTransformation(&transformationNodeL3, 3, NULL, NULL, &lodNodeL, NULL) != 0)
+		return 31;
+	if (sceneInitializeTransformation(&transformationNodeL2, 3, NULL, NULL, &lodNodeL, &transformationNodeL3) != 0)
+		return 31;
+	if (sceneInitializeTransformation(&transformationNodeL, 3, NULL, NULL, &lodNodeL, &transformationNodeL2) != 0)
+		return 31;
 	if (sceneInitializeGeometry(&nodeT, 3, 1, &meshT, &transformationNodeL, NULL) != 0)
 		return 27;
 	if(sceneInitializeGeometry(&nodeTMed, 3, 1, &meshTMed, &transformationNodeL, NULL) != 0)
@@ -350,9 +422,11 @@ int initializeScene(void) {
 		return 29;
 	if (sceneInitializeLOD(&lodNodeT, 3, 3, NULL, NULL, NULL) != 0)
 		return 30;
-	if (sceneInitializeTransformation(&transformationNodeL, 3, NULL, NULL, &lodNodeL, NULL) != 0)
-		return 31;
-	if (sceneInitializeTransformation(&transformationNodeT, 3, NULL, NULL, &lodNodeT, &nodeW) != 0)
+	if (sceneInitializeTransformation(&transformationNodeT3, 3, NULL, NULL, &lodNodeT, &nodeW) != 0)
+		return 32; 
+	if (sceneInitializeTransformation(&transformationNodeT2, 3, NULL, NULL, &lodNodeT, &transformationNodeT3) != 0)
+		return 32; 
+	if (sceneInitializeTransformation(&transformationNodeT, 3, NULL, NULL, &lodNodeT, &transformationNodeT2) != 0)
 		return 32; 
 	if (sceneInitializeGeometry(&nodeV, 3, 1, &meshV, NULL, &transformationNodeT) != 0)
 		return 33;
@@ -408,10 +482,18 @@ int initializeScene(void) {
 	sceneSetTexture(&nodeLMed, &tex);
 	sceneSetTexture(&nodeLFar, &tex);
 	
-	GLdouble transl[3] = {40.0, 28.0, 5.0};
+	GLdouble transl[3] = {45.0, 70.0, 30.0};
 	sceneSetTranslation(&transformationNodeT, transl);
 	vecSet(3, transl, 0.0, 0.0, 7.0);
 	sceneSetTranslation(&transformationNodeL, transl);
+	vecSet(3, transl, 10.0, 100.0, 30.0);
+	sceneSetTranslation(&transformationNodeT2, transl);
+	vecSet(3, transl, 0.0, 0.0, 7.0);
+	sceneSetTranslation(&transformationNodeL2, transl);
+	vecSet(3, transl, 90.0, 150.0, 30.0);
+	sceneSetTranslation(&transformationNodeT3, transl);
+	vecSet(3, transl, 0.0, 0.0, 7.0);
+	sceneSetTranslation(&transformationNodeL3, transl);
 	
 	GLint r[3] = {100, 130, 150};
 	sceneSetRanges(&lodNodeL, r);
@@ -475,7 +557,7 @@ int initializeShaderProgram(void) {
 		#version 140\n\
 		uniform mat4 modeling;\
 		uniform mat4 proj;\
-		uniform mat4 camDist;\
+		uniform mat4 viewing;\
 		uniform mat4 viewingSdwA;\
 		uniform mat4 viewingSdwB;\
 		in vec3 position;\
@@ -486,7 +568,7 @@ int initializeShaderProgram(void) {
 		out vec2 st;\
 		out vec4 fragSdwA;\
 		out vec4 fragSdwB;\
-		out float eyeZ;\
+		out vec4 eyeView;\
 		void main(void) {\
 			mat4 scaleBias = mat4(\
 				0.5, 0.0, 0.0, 0.0, \
@@ -495,8 +577,7 @@ int initializeShaderProgram(void) {
 				0.5, 0.5, 0.5, 1.0);\
 			vec4 worldPos = modeling * vec4(position, 1.0);\
 			gl_Position = proj * vec4(position, 1.0);\
-			vec4 eyeView = camDist * worldPos;\
-			eyeZ = -eyeView[2];\
+			eyeView = viewing * worldPos;\
 			fragSdwA = scaleBias * viewingSdwA * worldPos;\
 			fragSdwB = scaleBias * viewingSdwB * worldPos;\
 			fragPos = vec3(worldPos);\
@@ -520,13 +601,19 @@ int initializeShaderProgram(void) {
 		uniform float lightBCos;\
 		uniform sampler2DShadow textureSdwA;\
 		uniform sampler2DShadow textureSdwB;\
-		in float eyeZ;\
+		in vec4 eyeView;\
 		in vec3 fragPos;\
 		in vec3 normalDir;\
 		in vec2 st;\
 		in vec4 fragSdwA;\
 		in vec4 fragSdwB;\
 		out vec4 fragColor;\
+		vec4 getFinalColor(vec4 startColor){\
+			vec4 fog = vec4(0.5f, 0.5f, 0.7f, 0.5f);\
+    		float fogDist = abs(eyeView.z/eyeView.w);\
+    		float dist = clamp(fogDist, 0.0, 1.0);\
+    		return mix(startColor, fog, dist);\
+		}\
 		void main(void) {\
 			vec3 view = normalize(camPos-fragPos);\
 			float rim = 1 - max(dot(view, normalDir), 0.0);\
@@ -572,38 +659,7 @@ int initializeShaderProgram(void) {
 			vec3 specReflB = specIntB * lightBCol * specular;\
     		specReflA = pow(specIntA, shininess) * lightACol * specular;\
     		specReflB = pow(specIntB, shininess) * lightBCol * specular;\
-    		vec3 fog = vec3(0.0, 0.0, 0.1);\
-    		vec3 cScale;\
-    		float f;\
-    		if(eyeZ>120){\
-    			cScale = (finalRim+diffReflA + diffReflB + specReflB + specReflA);\
-    			f = 1-(((eyeZ*0.003)+1)/2);\
-    			vec3 color = mix(fog, cScale, f);\
-				fragColor = vec4(color, 1.0);\
-			} else if (eyeZ>100) {\
-				cScale = (finalRim+diffReflA + diffReflB + specReflB + specReflA);\
-    			f = 1-(((eyeZ*0.0003)+1)/2);\
-    			vec3 color = mix(fog, cScale, f);\
-				fragColor = vec4(color, 1.0);\
-			} else if (eyeZ>80) {\
-    			cScale = (finalRim+diffReflA + diffReflB + specReflB + specReflA);\
-    			f = 1-(((eyeZ*0.00003)+1)/2);\
-    			vec3 color = mix(fog, cScale, f);\
-				fragColor = vec4(color, 1.0);\
-			} else if (eyeZ>60) {\
-				cScale = (finalRim+diffReflA + diffReflB + specReflB + specReflA);\
-				f = 1-(((eyeZ*0.000003)+1)/2);\
-    			vec3 color = mix(fog, cScale, f);\
-				fragColor = vec4(color, 1.0);\
-			} else if(eyeZ>40){\
-				cScale = (finalRim+diffReflA + diffReflB + specReflB + specReflA);\
-				f = 1-(((eyeZ*0.0000003)+1)/2);\
-    			vec3 color = mix(fog, cScale, f);\
-				fragColor = vec4(color, 1.0);\
-			} else {\
-				cScale = (diffReflA + diffReflB + specReflB + specReflA);\
-				fragColor=vec4(cScale, 1.0);\
-			}\
+    		fragColor = vec4(diffReflA+diffReflB+specReflA+specReflB, 1.0);\
 		}";
 	program = makeProgram(vertexCode, fragmentCode);
 	if (program != 0) {
