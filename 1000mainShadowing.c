@@ -58,6 +58,7 @@ GLint camPosLoc;
 GLint viewingSdwLoc[2], textureSdwLoc[2];
 
 skyboxSkybox skyboxPersp, skyboxOrtho;
+
 void handleError(int error, const char *description) {
 	fprintf(stderr, "handleError: %d\n%s\n", error, description);
 }
@@ -89,6 +90,7 @@ void handleKey(GLFWwindow *window, int key, int scancode, int action,
 		else if (key == GLFW_KEY_J)
 			camAddDistance(&cam, 0.5);
 		else if (key == GLFW_KEY_S)
+			/* use the s key to cycle through the switch node options*/
 			sceneCycleSwitch(&switchNodeT);
 		/* use shift to alter which light moves */
 		else if (key == GLFW_KEY_Y) {
@@ -188,6 +190,7 @@ midway through, then does not properly deallocate all resources. But that's
 okay, because the program terminates almost immediately after this function 
 returns. */
 int initializeScene(void) {
+	/*init textures*/
 	if (texInitializeFile(&texH, "grass.jpg", GL_LINEAR, GL_LINEAR, 
     		GL_REPEAT, GL_REPEAT) != 0)
     	return 1;
@@ -203,6 +206,7 @@ int initializeScene(void) {
     if (texInitializeFile(&texL, "tree.jpg", GL_LINEAR, GL_LINEAR, 
     		GL_REPEAT, GL_REPEAT) != 0)
     	return 5;
+	/*init attrs*/
 	GLuint attrDims[3] = {3, 2, 3};
     double zs[12][12] = {
 		{5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 20.0}, 
@@ -230,6 +234,8 @@ int initializeScene(void) {
 		{1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0}, 
 		{1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0}, 
 		{1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0}};
+		
+	/*init meshes*/
 	meshMesh mesh, meshLand;
 	if (meshInitializeLandscape(&meshLand, 12, 12, 5.0, (double *)zs) != 0)
 		return 6;
@@ -250,117 +256,117 @@ int initializeScene(void) {
 		vert[3] = (vert[0] * normal[0] + vert[1] * normal[1]) / 20.0;
 		vert[4] = vert[2] / 20.0;
 	}
+	/**/
 	meshGLInitialize(&meshV, &mesh, 3, attrDims, 2);
 	meshGLVAOInitialize(&meshV, 0, attrLocs);
 	meshGLVAOInitialize(&meshV, 1, sdwProg.attrLocs);
 	meshDestroy(&mesh);
 	if (meshInitializeLandscape(&mesh, 12, 12, 5.0, (double *)ws) != 0)
 		return 9;
+	/*Water*/
 	meshGLInitialize(&meshW, &mesh, 3, attrDims, 2);
 	meshGLVAOInitialize(&meshW, 0, attrLocs);
 	meshGLVAOInitialize(&meshW, 1, sdwProg.attrLocs);
 	meshDestroy(&mesh);
 	if (meshInitializeCapsule(&mesh, 1.0, 10.0, 1, 8) != 0)
 		return 10;
+	/*Tree*/
 	meshGLInitialize(&meshT, &mesh, 3, attrDims, 2);
 	meshGLVAOInitialize(&meshT, 0, attrLocs);
 	meshGLVAOInitialize(&meshT, 1, sdwProg.attrLocs);
 	meshDestroy(&mesh);
-	if (meshInitializeBox(&mesh, 0.0, 10.5, 0.0, 10.5, 30.0, 40.0))
-		return 33;
-	meshGLInitialize(&meshCube, &mesh, 3, attrDims, 2);
-	meshGLVAOInitialize(&meshCube, 0, attrLocs);
-	meshGLVAOInitialize(&meshCube, 1, sdwProg.attrLocs);
-	meshDestroy(&mesh);
-	if (meshInitializeBox(&mesh, 3.0, 7.5, 3.0, 7.5, 33.0, 37.0))
-		return 33;
-	meshGLInitialize(&meshCubeM, &mesh, 3, attrDims, 2);
-	meshGLVAOInitialize(&meshCubeM, 0, attrLocs);
-	meshGLVAOInitialize(&meshCubeM, 1, sdwProg.attrLocs);
-	meshDestroy(&mesh);
-	if (meshInitializeBox(&mesh, 4.0, 6.5, 4.0, 6.5, 34.0, 36.0))
-		return 33;
-	meshGLInitialize(&meshCubeS, &mesh, 3, attrDims, 2);
-	meshGLVAOInitialize(&meshCubeS, 0, attrLocs);
-	meshGLVAOInitialize(&meshCubeS, 1, sdwProg.attrLocs);
-	meshDestroy(&mesh);
 	if (meshInitializeBox(&mesh, -1.0, 0.5, -1.0, 0.5, -2.0, 3.0))
-		return 33;
+		return 11;
 	meshGLInitialize(&meshTMed, &mesh, 3, attrDims, 2);
 	meshGLVAOInitialize(&meshTMed, 0, attrLocs);
 	meshGLVAOInitialize(&meshTMed, 1, sdwProg.attrLocs);
 	meshDestroy(&mesh);
 	if (meshInitializeBox(&mesh, -0.5, 0.0, -0.5, 0.0, -2.0, 5.0))
-		return 33;
+		return 12;
 	meshGLInitialize(&meshTFar, &mesh, 3, attrDims, 2);
 	meshGLVAOInitialize(&meshTFar, 0, attrLocs);
 	meshGLVAOInitialize(&meshTFar, 1, sdwProg.attrLocs);
 	meshDestroy(&mesh);
 	if (meshInitializeSphere(&mesh, 5.0, 8, 16) != 0)
-		return 11;
+		return 13;
 	meshGLInitialize(&meshL, &mesh, 3, attrDims, 2);
 	meshGLVAOInitialize(&meshL, 0, attrLocs);
 	meshGLVAOInitialize(&meshL, 1, sdwProg.attrLocs);
 	meshDestroy(&mesh);
 	if (meshInitializeSphere(&mesh, 5.0, 4, 8) != 0)
-		return 12;
+		return 14;
 	meshGLInitialize(&meshLMed, &mesh, 3, attrDims, 2);
 	meshGLVAOInitialize(&meshLMed, 0, attrLocs);
 	meshGLVAOInitialize(&meshLMed, 1, sdwProg.attrLocs);
 	meshDestroy(&mesh);
 	if (meshInitializeBox(&mesh, -2.0, 2.0, -2.0, 2.0, -2.0, 1.0))
-		return 33;
+		return 15;
 	meshGLInitialize(&meshLFar, &mesh, 3, attrDims, 2);
 	meshGLVAOInitialize(&meshLFar, 0, attrLocs);
 	meshGLVAOInitialize(&meshLFar, 1, sdwProg.attrLocs);
 	meshDestroy(&mesh);
-	if (sceneInitializeGeometry(&nodeCube, 3, 1, &meshCube, NULL, NULL) != 0)
-		return 14;
-	if (sceneInitializeGeometry(&nodeCubeM, 3, 1, &meshCubeM, NULL, NULL) != 0)
-		return 14;
-	if (sceneInitializeGeometry(&nodeCubeS, 3, 1, &meshCubeS, NULL, NULL) != 0)
-		return 14;
-	if (sceneInitializeGeometry(&nodeW, 3, 1, &meshW, NULL, NULL) != 0)
-		return 14;
-	if (sceneInitializeGeometry(&nodeL, 3, 1, &meshL, NULL, NULL) != 0)
+	/*switch cube*/
+	if (meshInitializeBox(&mesh, 0.0, 10.5, 0.0, 10.5, 30.0, 40.0))
 		return 16;
+	meshGLInitialize(&meshCube, &mesh, 3, attrDims, 2);
+	meshGLVAOInitialize(&meshCube, 0, attrLocs);
+	meshGLVAOInitialize(&meshCube, 1, sdwProg.attrLocs);
+	meshDestroy(&mesh);
+	if (meshInitializeBox(&mesh, 3.0, 7.5, 3.0, 7.5, 33.0, 37.0))
+		return 17;
+	meshGLInitialize(&meshCubeM, &mesh, 3, attrDims, 2);
+	meshGLVAOInitialize(&meshCubeM, 0, attrLocs);
+	meshGLVAOInitialize(&meshCubeM, 1, sdwProg.attrLocs);
+	meshDestroy(&mesh);
+	if (meshInitializeBox(&mesh, 4.0, 6.5, 4.0, 6.5, 34.0, 36.0))
+		return 18;
+	meshGLInitialize(&meshCubeS, &mesh, 3, attrDims, 2);
+	meshGLVAOInitialize(&meshCubeS, 0, attrLocs);
+	meshGLVAOInitialize(&meshCubeS, 1, sdwProg.attrLocs);
+	meshDestroy(&mesh);
+	
+	/*Initialize scene nodes*/
+	if (sceneInitializeGeometry(&nodeCube, 3, 1, &meshCube, NULL, NULL) != 0)
+		return 19;
+	if (sceneInitializeGeometry(&nodeCubeM, 3, 1, &meshCubeM, NULL, NULL) != 0)
+		return 20;
+	if (sceneInitializeGeometry(&nodeCubeS, 3, 1, &meshCubeS, NULL, NULL) != 0)
+		return 21;
+	if (sceneInitializeGeometry(&nodeW, 3, 1, &meshW, NULL, NULL) != 0)
+		return 22;
+	if (sceneInitializeGeometry(&nodeL, 3, 1, &meshL, NULL, NULL) != 0)
+		return 23;
 	if (sceneInitializeGeometry(&nodeLMed, 3, 1, &meshLMed, NULL, NULL)!= 0)
-		return 34;
+		return 24;
 	if (sceneInitializeGeometry(&nodeLFar, 3, 1, &meshLFar, NULL, NULL)!= 0)
-		return 34;
+		return 25;
 	if (sceneInitializeLOD(&lodNodeL, 3, 3, NULL, NULL, NULL) != 0)
-		return 17;
-	if (sceneInitializeTransformation(&transformationNodeL, 
-		3, NULL, NULL, &lodNodeL, NULL) != 0)
-		return 11;
+		return 26;
 	if (sceneInitializeGeometry(&nodeT, 3, 1, &meshT, &transformationNodeL, NULL) != 0)
-		return 15;
+		return 27;
 	if(sceneInitializeGeometry(&nodeTMed, 3, 1, &meshTMed, &transformationNodeL, NULL) != 0)
-		return 44;
+		return 28;
 	if(sceneInitializeGeometry(&nodeTFar, 3, 1, &meshTFar, &transformationNodeL, NULL) != 0)
-		return 44;
+		return 29;
 	if (sceneInitializeLOD(&lodNodeT, 3, 3, NULL, NULL, NULL) != 0)
-		return 17;
-	if (sceneInitializeSwitch(&switchNodeT, 3, 6, NULL, NULL) != 0)
-		return 17;
-	if (sceneInitializeTransformation(&transformationNodeT, 
-		3, NULL, NULL, &lodNodeT, &nodeW) != 0)
-		return 11; 
+		return 30;
+	if (sceneInitializeTransformation(&transformationNodeL, 3, NULL, NULL, &lodNodeL, NULL) != 0)
+		return 31;
+	if (sceneInitializeTransformation(&transformationNodeT, 3, NULL, NULL, &lodNodeT, &nodeW) != 0)
+		return 32; 
 	if (sceneInitializeGeometry(&nodeV, 3, 1, &meshV, NULL, &transformationNodeT) != 0)
-		return 13;
+		return 33;
 	if (sceneInitializeGeometry(&nodeH, 3, 1, &meshH, &nodeV, &switchNodeT) != 0)
-		return 12;
+		return 34;
 	if (sceneInitializeLight(&lightNodeOne, 3, &lightB, NULL, &nodeH) != 0)
-		return 14;
+		return 35;
 	if (sceneInitializeLight(&lightNodeTwo, 3, &lightA, NULL, &lightNodeOne) != 0)
-		return 15;
-	if (sceneInitializeCamera(&rootNode, 
-		3, NULL, NULL, &lightNodeTwo, NULL) != 0)
-		return 16; 
-	GLdouble transl[3] = {40.0, 28.0, 5.0};
-	sceneSetTranslation(&transformationNodeT, transl);
-	vecSet(3, transl, 0.0, 0.0, 7.0);
-	sceneSetTranslation(&transformationNodeL, transl);
+		return 36;
+	if (sceneInitializeSwitch(&switchNodeT, 3, 6, NULL, NULL) != 0)
+		return 37;
+	if (sceneInitializeCamera(&rootNode, 3, NULL, NULL, &lightNodeTwo, NULL) != 0)
+		return 38; 
+
 	GLdouble unif[3] = {0.0, 0.0, 0.0};
 	sceneSetUniform(&nodeH, unif);
 	sceneSetUniform(&nodeV, unif);
@@ -382,6 +388,7 @@ int initializeScene(void) {
 	sceneSetUniform(&nodeCubeS, unif);
 	vecSet(3, unif, 1.0, 1.0, 1.0);
 	sceneSetUniform(&nodeW, unif);
+	
 	texTexture *tex;
 	tex = &texH;
 	sceneSetTexture(&nodeH, &tex);
@@ -400,9 +407,16 @@ int initializeScene(void) {
 	sceneSetTexture(&nodeL, &tex);
 	sceneSetTexture(&nodeLMed, &tex);
 	sceneSetTexture(&nodeLFar, &tex);
+	
+	GLdouble transl[3] = {40.0, 28.0, 5.0};
+	sceneSetTranslation(&transformationNodeT, transl);
+	vecSet(3, transl, 0.0, 0.0, 7.0);
+	sceneSetTranslation(&transformationNodeL, transl);
+	
 	GLint r[3] = {100, 130, 150};
 	sceneSetRanges(&lodNodeL, r);
 	sceneSetRanges(&lodNodeT, r);
+	
 	sceneNode *childrenL[3];
 	childrenL[0] = &nodeL;
 	childrenL[1] = &nodeLMed;
@@ -413,6 +427,7 @@ int initializeScene(void) {
 	childrenT[1] = &nodeTMed;
 	childrenT[2] = &nodeTFar;
 	sceneSetChildArray(&lodNodeT, childrenT);
+	
 	sceneNode *childrenS[6];
 	childrenS[0] = &nodeCube;
 	childrenS[1] = &nodeCubeM;
@@ -421,6 +436,7 @@ int initializeScene(void) {
 	childrenS[4] = &nodeCubeS;
 	childrenS[5] = &nodeCubeM;
 	sceneSetChildArraySwitch(&switchNodeT, childrenS);
+	
 	sceneSetLightLocations(&lightNodeOne, lightPosLoc[0], lightColLoc[0], 
 		lightAttLoc[0], lightDirLoc[0], lightCosLoc[0]);
 	sceneSetShadowLocations(&lightNodeOne, viewingSdwLoc[0], 6, textureSdwLoc[0]);
@@ -448,6 +464,9 @@ void destroyScene(void) {
 	meshGLDestroy(&meshL);
 	meshGLDestroy(&meshLMed);
 	meshGLDestroy(&meshLFar);
+	meshGLDestroy(&meshCube);
+	meshGLDestroy(&meshCubeM);
+	meshGLDestroy(&meshCubeS);
 	sceneDestroyRecursively(&rootNode);
 }
 
@@ -637,17 +656,20 @@ void render(void) {
 	render the scene. */
 	glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	
 	if(cam.projectionType==camPERSPECTIVE){
 		skyboxSkyboxRender(&skyboxPersp, &rootNode);
 	}
 	glUseProgram(program);
 
 	GLuint unifDims[1] = {3};
-	sceneRender(&rootNode, identity, identity, identity, modelingLoc, projLoc, 1, unifDims, unifLocs, 0, 
-		textureLocs, camPosLoc, distFromCam);
+	sceneRender(&rootNode, identity, identity, identity, modelingLoc, projLoc, 1, unifDims, 
+		unifLocs, 0, textureLocs, camPosLoc, distFromCam);
+		
 	if (cam.projectionType==camORTHOGRAPHIC){
 		skyboxSkyboxRender(&skyboxOrtho, &rootNode);
 	}
+	
 	shadowUnrender(GL_TEXTURE6);
 	shadowUnrender(GL_TEXTURE7);
 }
@@ -656,51 +678,64 @@ int main(void) {
 	double oldTime;
 	double newTime = getTime();
     glfwSetErrorCallback(handleError);
+	
     if (glfwInit() == 0) {
     	fprintf(stderr, "main: glfwInit failed.\n");
         return 1;
     }
+	
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
 	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
     GLFWwindow *window;
-    window = glfwCreateWindow(768, 768, "Shadows", NULL, NULL);
+    window = glfwCreateWindow(768, 768, "Final Project", NULL, NULL);
+	
     if (window == NULL) {
     	fprintf(stderr, "main: glfwCreateWindow failed.\n");
         glfwTerminate();
         return 2;
     }
+	
     glfwSetWindowSizeCallback(window, handleResize);
     glfwSetKeyCallback(window, handleKey);
     glfwMakeContextCurrent(window);
+	
     if (gl3wInit() != 0) {
     	fprintf(stderr, "main: gl3wInit failed.\n");
     	glfwDestroyWindow(window);
     	glfwTerminate();
     	return 3;
     }
+	
     fprintf(stderr, "main: OpenGL %s, GLSL %s.\n", 
 		glGetString(GL_VERSION), glGetString(GL_SHADING_LANGUAGE_VERSION));
+		
 	/* We no longer do glDepthRange(1.0, 0.0). Instead we have changed our 
 	projection matrices. */
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
     glClearColor(0.0, 0.0, 0.4, 1.0);
+	
     if (initializeShaderProgram() != 0)
-    	return 3;
+    	return 4;
+	
     skyboxInitializeSkyboxShader(&skyboxPersp);
     skyboxInitializeSkyboxShader(&skyboxOrtho);
+	
     /* Initialize the shadow mapping before the meshes. Why? */
 	if (initializeCameraLight() != 0)
-		return 4;
+		return 5;
+	
 	char *skyboxTex[] = {"purplenebula_ft.tga", "purplenebula_bk.tga", "purplenebula_up.tga",
 		 "purplenebula_dn.tga", "purplenebula_lf.tga", "purplenebula_rt.tga"};
 	skyboxInitializeSkybox(&skyboxOrtho, skyboxTex, NULL, 0);
 	skyboxInitializeSkybox(&skyboxPersp, skyboxTex, NULL, 1);
+	
     if (initializeScene() != 0)
-    	return 5;
+    	return 6;
+	
     while (glfwWindowShouldClose(window) == 0) {
     	oldTime = newTime;
     	newTime = getTime();
@@ -710,6 +745,7 @@ int main(void) {
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
+	
     /* Deallocate more resources than ever. */
     shadowProgramDestroy(&sdwProg);
     shadowMapDestroy(&sdwMapA);

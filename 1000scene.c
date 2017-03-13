@@ -49,8 +49,6 @@ struct sceneNode {
 
 	// LOD node
 	GLint *ranges, rangeDim;
-	
-	//used by LOD and switch
 	sceneNode **firstChildMeshes;
 	
 	//Switch node
@@ -59,28 +57,34 @@ struct sceneNode {
 	GLuint curSwitch;
 };
 
+int sceneInitializeDefaults(sceneNode *node, GLuint unifDim,
+		sceneNode *firstChild, sceneNode *nextSibling) {
+    node->unif = (GLdouble *)malloc(unifDim * sizeof(GLdouble));
+    if (node->unif == NULL)
+        return 1;
+	node->unifDim = unifDim;
+	node->firstChild = firstChild;
+	node->nextSibling = nextSibling;
+    mat33Identity(node->rotation);
+	vecSet(3, node->translation, 0.0, 0.0, 0.0);
+	return 0;
+}
+
 /* Initializes a transformation Node that handles rotation and translation for all child nodes.
  The user must remember to call sceneDestroy or 
 sceneDestroyRecursively when finished. Returns 0 if no error occurred. */
 int sceneInitializeTransformation(sceneNode *node, GLuint unifDim, GLdouble rotation[3][3],
 		GLdouble translation[3], sceneNode *firstChild, sceneNode *nextSibling) {
 	node->nodeType = sceneTRANSFORMATION;
-    node->unif = (GLdouble *)malloc(unifDim * sizeof(GLdouble));
-    if (node->unif == NULL)
-        return 1;
-    if(translation==NULL){
-    	vecSet(3, node->translation, 0.0, 0.0, 0.0);
-    } else{
+	if (sceneInitializeDefaults(node, unifDim, firstChild, nextSibling) != 0)
+		return 1;
+	
+    if(translation!=NULL){
     	vecCopy(3, node->translation, translation);
     }
-    if(rotation==NULL){
-    	mat33Identity(node->rotation);
-    } else {
+    if(rotation!=NULL){
     	vecCopy(9, (GLdouble *)rotation, (GLdouble *)(node->rotation));
     }
-	node->unifDim = unifDim;
-	node->firstChild = firstChild;
-	node->nextSibling = nextSibling;
 	return 0;
 }
 
@@ -90,18 +94,13 @@ sceneDestroyRecursively when finished. Returns 0 if no error occurred. */
 int sceneInitializeGeometry(sceneNode *node, GLuint unifDim, GLuint texNum, 
 		meshGLMesh *mesh, sceneNode *firstChild, sceneNode *nextSibling){
 	node->nodeType = sceneGEOMETRY;
+	if (sceneInitializeDefaults(node, unifDim, firstChild, nextSibling) != 0)
+		return 1;
 	node->unif = (GLdouble *)malloc(unifDim * sizeof(GLdouble) + 
         texNum * sizeof(texTexture *));
-    if (node->unif == NULL)
-        return 1;
     node->tex = (texTexture **)&(node->unif[unifDim]);
-    mat33Identity(node->rotation);
-	vecSet(3, node->translation, 0.0, 0.0, 0.0);
 	node->texNum = texNum;
-	node->unifDim = unifDim;
 	node->meshGL = mesh;
-	node->firstChild = firstChild;
-	node->nextSibling = nextSibling;
 	return 0;
 
 }
@@ -112,22 +111,14 @@ sceneDestroyRecursively when finished. Returns 0 if no error occurred. */
 int sceneInitializeCamera(sceneNode *node, GLuint unifDim, GLdouble rotation[3][3],
 		GLdouble translation[3], sceneNode *firstChild, sceneNode *nextSibling){
 	node->nodeType = sceneCAMERA;
-    node->unif = (GLdouble *)malloc(unifDim * sizeof(GLdouble));
-    if (node->unif == NULL)
-        return 1;
-    if(translation==NULL){
-    	vecSet(3, node->translation, 0.0, 0.0, 0.0);
-    } else{
+	if (sceneInitializeDefaults(node, unifDim, firstChild, nextSibling) != 0)
+		return 1;
+    if(translation!=NULL){
     	vecCopy(3, node->translation, translation);
     }
-    if(rotation==NULL){
-    	mat33Identity(node->rotation);
-    } else {
+    if(rotation!=NULL){
     	vecCopy(9, (GLdouble *)rotation, (GLdouble *)(node->rotation));
     }
-	node->unifDim = unifDim;
-	node->firstChild = firstChild;
-	node->nextSibling = nextSibling;
 	return 0;
 }
 
@@ -135,50 +126,32 @@ int sceneInitializeCamera(sceneNode *node, GLuint unifDim, GLdouble rotation[3][
 sceneDestroyRecursively when finished. Returns 0 if no error occurred. */
 int sceneInitializeLight(sceneNode *node, GLuint unifDim, lightLight *light, sceneNode *firstChild, sceneNode *nextSibling){
 	node->nodeType = sceneLIGHT;
-    node->unif = (GLdouble *)malloc(unifDim * sizeof(GLdouble));
+	if (sceneInitializeDefaults(node, unifDim, firstChild, nextSibling) != 0)
+		return 1;
 	node->light = light;
 	node->hasShadows  = sceneCASTSHADOWS;
-    if (node->unif == NULL)
-        return 1;
-    mat33Identity(node->rotation);
-	vecSet(3, node->translation, 0.0, 0.0, 0.0);
-	node->unifDim = unifDim;
-	node->firstChild = firstChild;
-	node->nextSibling = nextSibling;
 	return 0;
 }
 
 int sceneInitializeLOD(sceneNode *node, GLuint unifDim, GLint rangeDim, 
 		GLint *ranges, sceneNode *firstChildMeshes[], sceneNode *nextSibling){
 	node->nodeType = sceneLOD;
-    node->unif = (GLdouble *)malloc(unifDim * sizeof(GLdouble));
+	if (sceneInitializeDefaults(node, unifDim, NULL, nextSibling) != 0)
+		return 1;
 	node->rangeDim = rangeDim;
 	node->ranges = (GLint *)malloc(rangeDim * sizeof(GLint));
-	
-    if (node->unif == NULL)
-        return 1;
-    mat33Identity(node->rotation);
-	vecSet(3, node->translation, 0.0, 0.0, 0.0);
-	node->unifDim = unifDim;
 	node->firstChildMeshes = (sceneNode **)malloc(rangeDim * sizeof(sceneNode *));
-	node->nextSibling = nextSibling;
 	return 0;
 }
 
 int sceneInitializeSwitch(sceneNode *node, GLuint unifDim, GLuint numSwitches, 
 		sceneNode *firstChildNodes[], sceneNode *nextSibling){
 	node->nodeType = sceneSWITCH;
-    node->unif = (GLdouble *)malloc(unifDim * sizeof(GLdouble));
+	if (sceneInitializeDefaults(node, unifDim, NULL, nextSibling) != 0)
+		return 1;
 	node->numSwitches = numSwitches;
 	node->curSwitch = 0;
-	
-    if (node->unif == NULL)
-        return 1;
-    mat33Identity(node->rotation);
-	vecSet(3, node->translation, 0.0, 0.0, 0.0);
-	node->unifDim = unifDim;
 	node->firstChildNodes = (sceneNode **)malloc(numSwitches * sizeof(sceneNode *));
-	node->nextSibling = nextSibling;
 	return 0;
 }
 
@@ -188,6 +161,37 @@ void sceneDestroy(sceneNode *node) {
 	if (node->unif != NULL)
 		free(node->unif);
 	node->unif = NULL;
+	
+	if (node->firstChildMeshes != NULL)
+		free(node->firstChildMeshes);
+	node->firstChildMeshes = NULL;
+	
+	if (node->firstChildNodes != NULL)
+		free(node->firstChildNodes);
+	node->firstChildNodes = NULL;
+}
+
+/* Calls sceneDestroy recursively on the node's descendants and younger 
+siblings, and then on the node itself. */
+void sceneDestroyRecursively(sceneNode *node) {
+	if (node->firstChild != NULL)
+		sceneDestroyRecursively(node->firstChild);
+	if (node->nextSibling != NULL)
+		sceneDestroyRecursively(node->nextSibling);
+	if (node->firstChildMeshes != NULL) {
+		for (int i = 0; i < node->rangeDim; i += 1) {
+			if (node->firstChildMeshes[i] != NULL)
+				sceneDestroyRecursively(node->firstChildMeshes[i]);
+		}
+	}
+	
+	if (node->firstChildNodes != NULL) {
+		for (int i = 0; i < node->numSwitches; i += 1) {
+			if (node->firstChildNodes[i] != NULL)
+				sceneDestroyRecursively(node->firstChildNodes[i]);
+		}
+	}
+	sceneDestroy(node);
 }
 
 /*** Accessors ***/
@@ -222,16 +226,6 @@ void sceneSetOneTexture(sceneNode *node, int index, texTexture *texture) {
 	node->tex[index] = texture;
 }
 
-/* Calls sceneDestroy recursively on the node's descendants and younger 
-siblings, and then on the node itself. */
-void sceneDestroyRecursively(sceneNode *node) {
-	if (node->firstChild != NULL)
-		sceneDestroyRecursively(node->firstChild);
-	if (node->nextSibling != NULL)
-		sceneDestroyRecursively(node->nextSibling);
-	sceneDestroy(node);
-}
-
 /* Sets the node's rotation. */
 void sceneSetRotation(sceneNode *node, GLdouble rot[3][3]) {
 	vecCopy(9, (GLdouble *)rot, (GLdouble *)(node->rotation));
@@ -245,20 +239,6 @@ void sceneSetTranslation(sceneNode *node, GLdouble transl[3]) {
 /* Sets the node's camera. */
 void sceneSetCamera(sceneNode *node, camCamera *cam) {
 	node->cam = cam;
-}
-/* Sets the scene's mesh. */
-void sceneSetMesh(sceneNode *node, meshGLMesh *mesh) {
-	node->meshGL = mesh;
-}
-
-/* Sets the node's first child. */
-void sceneSetFirstChild(sceneNode *node, sceneNode *child) {
-	node->firstChild = child;
-}
-
-/* Sets the node's next sibling. */
-void sceneSetNextSibling(sceneNode *node, sceneNode *sibling) {
-	node->nextSibling = sibling;
 }
 
 /* Sets up the OpenGL locations for light Nodes */
@@ -301,6 +281,21 @@ void sceneSetShadowLocations(sceneNode *node, GLint viewingSdw, GLint textureUni
 /* Sets the shadowMap of a light Node */
 void sceneSetShadowMap(sceneNode *node, shadowMap *sdwMap) {
 	node->sdwMap = sdwMap;
+}
+
+/* Sets the scene's mesh. */
+void sceneSetMesh(sceneNode *node, meshGLMesh *mesh) {
+	node->meshGL = mesh;
+}
+
+/* Sets the node's first child. */
+void sceneSetFirstChild(sceneNode *node, sceneNode *child) {
+	node->firstChild = child;
+}
+
+/* Sets the node's next sibling. */
+void sceneSetNextSibling(sceneNode *node, sceneNode *sibling) {
+	node->nextSibling = sibling;
 }
 
 /* Adds a sibling to the given node. The sibling shows up as the youngest of 
@@ -358,6 +353,10 @@ void sceneSetChildArray(sceneNode *node, sceneNode *firstChildMeshes[]){
 	}	
 }
 
+void sceneSetOneChild(sceneNode *node, int index, sceneNode *child) {
+	node->firstChildMeshes[index] = child;
+}
+
 void sceneSetChildArraySwitch(sceneNode *node, sceneNode *firstChildNodes[]){
 	for(int i = 0; i < node->numSwitches; i += 1){
 		node->firstChildNodes[i] = firstChildNodes[i];
@@ -379,10 +378,6 @@ void sceneCycleSwitch(sceneNode *node) {
 	if (node->curSwitch == node->numSwitches) node->curSwitch = 0;
 	printf("%d\n", node->curSwitch);
 	fflush(stdout);
-}
-
-void sceneSetOneChild(sceneNode *node, int index, sceneNode *child) {
-	node->firstChildMeshes[index] = child;
 }
 
 void sceneRenderTextures(sceneNode *node, GLint textureLocs[]){
@@ -445,6 +440,7 @@ void sceneRenderCamera(sceneNode *node, GLint modelingLoc, GLint projLoc,
 	vecOpenGL(3, node->cam->translation, vec);
 	glUniform3fv(camPosLoc, 1, vec);
 }
+
 void sceneRenderLight(sceneNode *node, GLdouble parent[4][4], 
 		GLdouble parentProj[4][4], GLdouble parentCam[4][4], GLint modelingLoc,
 		GLint projLoc, GLuint unifNum, GLuint unifDims[], 
@@ -467,15 +463,9 @@ void sceneRenderTransformation(sceneNode *node, GLdouble parent[4][4],
 	GLdouble mHold[4][4], projectionHold[4][4];
 
 	mat44Isometry(node->rotation, node->translation, mHold);
-	//mat44Copy(mHold, projectionHold);
 	mat444Multiply(parent, mHold, m);
-	// mat44OpenGL(m, model);
 	mat444Multiply(parentProj, mHold, projection);
-	// mat44OpenGL(projection, proj);
 	mat44Copy(parentCam, eyeView);
-
-	// glUniformMatrix4fv(modelingLoc, 1, GL_FALSE, (GLfloat *)model);
-	// glUniformMatrix4fv(projLoc, 1, GL_FALSE, (GLfloat *)proj);
 }
 
 void sceneRenderGeometry(sceneNode *node, GLdouble parent[4][4], 
@@ -511,12 +501,9 @@ void sceneRenderSwitch(sceneNode *node, GLdouble parent[4][4],
 		GLint projLoc, GLuint unifNum, GLuint unifDims[], GLint unifLocs[], 
 		GLdouble m[4][4], GLdouble projection[4][4], GLdouble eyeView[4][4]) {
 	mat44Disect(parent, node->rotation, node->translation);
-	// mat44OpenGL(parent, model);
 	mat44Copy(parent, m);
-	// mat44OpenGL(parentProj, proj);
 	mat44Copy(parentProj, projection);
 	mat44Copy(parentCam, eyeView);
-	
 	
 	sceneSetFirstChild(node, node->firstChildNodes[node->curSwitch]);
 }
@@ -528,14 +515,9 @@ void sceneRenderLOD(sceneNode *node, GLdouble parent[4][4],
 	GLfloat model[4][4], proj[4][4];
 	GLdouble mHold[4][4], projectionHold[4][4];
 	mat44Disect(parent, node->rotation, node->translation);
-	// mat44OpenGL(parent, model);
 	mat44Copy(parent, m);
-	// mat44OpenGL(parentProj, proj);
 	mat44Copy(parentProj, projection);
 	mat44Copy(parentCam, eyeView);
-
-	// glUniformMatrix4fv(modelingLoc, 1, GL_FALSE, (GLfloat *)model);
-	// glUniformMatrix4fv(projLoc, 1, GL_FALSE, (GLfloat *)proj);
 
 	for(int i=0;i<node->rangeDim;i++){
 		if(-parentCam[2][3]<=node->ranges[i]){

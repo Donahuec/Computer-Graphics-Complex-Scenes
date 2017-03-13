@@ -7,6 +7,7 @@ struct skyboxSkybox {
 	texTexture texBackground;
 };
 
+/*Initialize a skybox. Suply texture file names in the order front, back, up, down, left, right*/
 void skyboxInitializeSkybox(skyboxSkybox *skybox, char *textures[], GLdouble *vertices, 
 	GLint projType){
 	GLuint attrDims[3] = {3, 2, 3};
@@ -119,6 +120,7 @@ void skyboxInitializeSkybox(skyboxSkybox *skybox, char *textures[], GLdouble *ve
 	glVertexAttribPointer(skybox->backLoc, 3, GL_DOUBLE, GL_FALSE, 0, NULL);
 	glBindVertexArray(0);
 
+	/*set the textures based off of the supplied array*/
 	create_cube_map(textures[0], textures[1], textures[2],
 		 textures[3], textures[4], textures[5], &(skybox->texBackground));
 }
@@ -154,6 +156,7 @@ void skyboxInitializeSkyboxShader(skyboxSkybox *skybox){
 	skybox->skybox = glGetUniformLocation(skybox->programBack, "skybox");
 }
 
+/*Renders a Skybox*/
 void skyboxSkyboxRender(skyboxSkybox *skybox, sceneNode *node){
 	GLdouble parent[4][4], rotation[3][3];
 	GLfloat parentFloat[4][4];
