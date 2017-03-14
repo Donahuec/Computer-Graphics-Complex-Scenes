@@ -199,16 +199,21 @@ int initializeCameraLight(void) {
 	lightSetType(&lightA, lightOMNI);
 	lightSetType(&lightB, lightSPOT);
 
-	vecSet(3, vec, 55.0, 10.0, 60.0);
-	lightShineFrom(&lightA, vec, M_PI * 3.0 / 4.0, M_PI * 3.0 / 4.0);
-	vecSet(3, vec, 100.0, 100.0, 60.0);
+	 vecSet(3, vec, 55.0, 50.0, 60.0);
+	 lightShineFrom(&lightA, vec, M_PI * 3.0 / 4.0, M_PI * 3.0 / 4.0);
+	// vecSet(3, vec, 100.0, 100.0, 100.0);
+	// lightShineFrom(&lightB, vec, M_PI * 3.0 / 4.0, M_PI * 3.0 / 4.0);
+	
+	//vecSet(3, vec, 55.0, 10.0, 20.0);
+	//lightShineFrom(&lightA, vec, M_PI * 3.0 / 4.0, M_PI * 3.0 / 4.0);
+	vecSet(3, vec, 45.0, 6.0, 70.0);
 	lightShineFrom(&lightB, vec, M_PI * 3.0 / 4.0, M_PI * 3.0 / 4.0);
 
 	/* one light red, one green */
 	//vecSet(3, vec, 0.8, 0.1, 0.4);
-	vecSet(3, vec, 1.0, 1.0, 1.0);
+	vecSet(3, vec, 0.7, 0.7, 0.7);
 	lightSetColor(&lightA, vec);
-	vecSet(3, vec, 0.1, 0.8, 0.4);
+	vecSet(3, vec, 0.5, 1.0, 0.7);
 	lightSetColor(&lightB, vec);
 
 	vecSet(3, vec, 1.0, 0.0, 0.0);
@@ -216,7 +221,7 @@ int initializeCameraLight(void) {
 	lightSetAttenuation(&lightB, vec);
 
 	// lightSetSpotAngle(&lightA, M_PI/2.0);
-	lightSetSpotAngle(&lightB, M_PI / 3.0);
+	lightSetSpotAngle(&lightB, M_PI / 4.0);
 	/* Configure shadow mapping. */
 	if (shadowProgramInitialize(&sdwProg, 3) != 0)
 		return 1;
@@ -433,13 +438,13 @@ int initializeScene(void) {
 		return 33;
 	if (sceneInitializeGeometry(&nodeH, 3, 1, &meshH, &nodeV, &switchNodeT) != 0)
 		return 34;
-	if (sceneInitializeLight(&lightNodeOne, 3, &lightB, NULL, &nodeH) != 0)
-		return 35;
-	if (sceneInitializeLight(&lightNodeTwo, 3, &lightA, NULL, &lightNodeOne) != 0)
+	if (sceneInitializeLight(&lightNodeTwo, 3, &lightB, NULL, NULL) != 0)
 		return 36;
+	if (sceneInitializeLight(&lightNodeOne, 3, &lightA, NULL, &lightNodeTwo) != 0)
+		return 35;
 	if (sceneInitializeSwitch(&switchNodeT, 3, 6, NULL, NULL) != 0)
 		return 37;
-	if (sceneInitializeCamera(&rootNode, 3, NULL, NULL, &lightNodeTwo, NULL) != 0)
+	if (sceneInitializeCamera(&rootNode, 3, NULL, NULL, &nodeH, &lightNodeOne) != 0)
 		return 38; 
 
 	GLdouble unif[3] = {0.0, 0.0, 0.0};
@@ -483,11 +488,11 @@ int initializeScene(void) {
 	sceneSetTexture(&nodeLMed, &tex);
 	sceneSetTexture(&nodeLFar, &tex);
 	
-	GLdouble transl[3] = {45.0, 70.0, 30.0};
+	GLdouble transl[3] = {45.0, 70.0, 5.0};
 	sceneSetTranslation(&transformationNodeT, transl);
 	vecSet(3, transl, 0.0, 0.0, 7.0);
 	sceneSetTranslation(&transformationNodeL, transl);
-	vecSet(3, transl, 10.0, 100.0, 30.0);
+	vecSet(3, transl, 15.0, 112.0, 28.0);
 	sceneSetTranslation(&transformationNodeT2, transl);
 	vecSet(3, transl, 0.0, 0.0, 7.0);
 	sceneSetTranslation(&transformationNodeL2, transl);
@@ -522,7 +527,7 @@ int initializeScene(void) {
 	
 	sceneSetLightLocations(&lightNodeOne, lightPosLoc[0], lightColLoc[0], 
 		lightAttLoc[0], lightDirLoc[0], lightCosLoc[0]);
-	sceneSetShadowLocations(&lightNodeOne, viewingSdwLoc[0], 6, textureSdwLoc[0]);
+	sceneSetShadowLocations(&lightNodeOne, viewingSdwLoc[0], 7, textureSdwLoc[0]);
 	sceneSetShadowMap(&lightNodeOne, &sdwMapA);
 	
 	sceneSetLightLocations(&lightNodeTwo, lightPosLoc[1], lightColLoc[1], 
@@ -697,14 +702,17 @@ void render(void) {
 	/* For each shadow-casting light, render its shadow map using minimal 
 	uniforms and textures. */
 	GLint sdwTextureLocs[1] = {-1};
+	
 	shadowMapRender(&sdwMapA, &sdwProg, &lightA, -100.0, -1.0);
-	sceneRender(&rootNode, identity, identity, identity, sdwProg.modelingLoc, sdwProg.modelingLoc, 0, NULL, NULL, 1, 
+	sceneRender(&nodeH, identity, identity, identity, sdwProg.modelingLoc, sdwProg.modelingLoc, 0, NULL, NULL, 1, 
 		sdwTextureLocs, -1, -1);
 	shadowMapUnrender();
+	
 	shadowMapRender(&sdwMapB, &sdwProg, &lightB, -100.0, -1.0);
-	sceneRender(&rootNode, identity, identity, identity, sdwProg.modelingLoc, sdwProg.modelingLoc, 0, NULL, NULL, 1, 
+	sceneRender(&nodeH, identity, identity, identity, sdwProg.modelingLoc, sdwProg.modelingLoc, 0, NULL, NULL, 1, 
 		sdwTextureLocs, -1, -1);
 	shadowMapUnrender();
+	
 	/* Finish preparing the shadow maps, restore the viewport, and begin to 
 	render the scene. */
 	glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);

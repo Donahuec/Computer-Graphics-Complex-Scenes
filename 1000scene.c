@@ -568,17 +568,19 @@ void sceneRender(sceneNode *node, GLdouble parent[4][4], GLdouble parentProj[4][
 		invCam, distFromCam);
 	}
 	
+	if(node->nextSibling != NULL){
+		sceneRender(node->nextSibling, parent, parentProj, parentCam, 
+			modelingLoc, projLoc, unifNum, unifDims, unifLocs, index, 
+			textureLocs, camPosLoc, distFromCam);
+	}
+	
 	/* Render the mesh, the children, and the younger siblings. */
 	if(node->firstChild != NULL){
 		sceneRender(node->firstChild, m, projection, invCam, modelingLoc, 
 			projLoc, unifNum, unifDims, unifLocs, index, textureLocs, 
 			camPosLoc, distFromCam);
 	}
-	if(node->nextSibling != NULL){
-		sceneRender(node->nextSibling, parent, parentProj, parentCam, 
-			modelingLoc, projLoc, unifNum, unifDims, unifLocs, index, 
-			textureLocs, camPosLoc, distFromCam);
-	}
+	
 }
 
 
