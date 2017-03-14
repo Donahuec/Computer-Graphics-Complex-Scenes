@@ -1,6 +1,6 @@
 /*
 1000mainShadowing.c
-Written by Josh Davis, adpated by Liv Phillips for CS311, Winter 2017
+Written by Josh Davis, adpated by Liv Phillips & Caitlin Donahue for CS311, Winter 2017
 Implements 2 shadow casting lights.
 */
 
@@ -26,7 +26,7 @@ double getTime(void) {
 #include "530vector.c"
 #include "580mesh.c"
 #include "1000matrix.c"
-#include "520camera.c"
+#include "1000camera.c"
 #include "540texture.c"
 #include "560light.c"
 #include "590shadow.c"
@@ -181,7 +181,6 @@ void handleKey(GLFWwindow *window, int key, int scancode, int action,
 				camSetTarget(&cam, vec);
 			}
 		}
-		vecPrint(3, cam.target);
 	}
 }
 
@@ -196,7 +195,7 @@ int initializeCameraLight(void) {
 		1.3, -1.5, vec);
 	sceneSetCamera(&rootNode, &cam);
 	
-	lightSetType(&lightA, lightOMNI);
+	lightSetType(&lightA, lightSPOT);
 	lightSetType(&lightB, lightSPOT);
 
 	vecSet(3, vec, 55.0, 60.0, 70.0);
@@ -214,7 +213,7 @@ int initializeCameraLight(void) {
 	lightSetAttenuation(&lightA, vec);
 	lightSetAttenuation(&lightB, vec);
 
-	// lightSetSpotAngle(&lightA, M_PI/2.0);
+	lightSetSpotAngle(&lightA, M_PI/2.0);
 	lightSetSpotAngle(&lightB, M_PI / 3.0);
 	/* Configure shadow mapping. */
 	if (shadowProgramInitialize(&sdwProg, 3) != 0)
@@ -432,13 +431,13 @@ int initializeScene(void) {
 		return 33;
 	if (sceneInitializeGeometry(&nodeH, 3, 1, &meshH, &nodeV, &switchNodeT) != 0)
 		return 34;
-	if (sceneInitializeLight(&lightNodeOne, 3, &lightB, NULL, &nodeH) != 0)
+	if (sceneInitializeLight(&lightNodeTwo, 3, &lightB, NULL, NULL, &nodeH, &sdwProg, -100.0, -1.0) != 0)
 		return 35;
-	if (sceneInitializeLight(&lightNodeTwo, 3, &lightA, NULL, &lightNodeOne) != 0)
+	if (sceneInitializeLight(&lightNodeOne, 3, &lightA, NULL, &lightNodeTwo, &nodeH, &sdwProg, -100.0, -1.0) != 0)
 		return 36;
 	if (sceneInitializeSwitch(&switchNodeT, 3, 6, NULL, NULL) != 0)
 		return 37;
-	if (sceneInitializeCamera(&rootNode, 3, NULL, NULL, &lightNodeTwo, NULL) != 0)
+	if (sceneInitializeCamera(&rootNode, 3, NULL, NULL, &nodeH, &lightNodeOne) != 0)
 		return 38; 
 
 	GLdouble unif[3] = {0.0, 0.0, 0.0};
@@ -695,15 +694,9 @@ void render(void) {
 	glGetIntegerv(GL_VIEWPORT, viewport);
 	/* For each shadow-casting light, render its shadow map using minimal 
 	uniforms and textures. */
-	GLint sdwTextureLocs[1] = {-1};
-	shadowMapRender(&sdwMapA, &sdwProg, &lightA, -100.0, -1.0);
-	sceneRender(&rootNode, identity, identity, identity, sdwProg.modelingLoc, sdwProg.modelingLoc, 0, NULL, NULL, 1, 
-		sdwTextureLocs, -1, -1);
-	shadowMapUnrender();
-	shadowMapRender(&sdwMapB, &sdwProg, &lightB, -100.0, -1.0);
-	sceneRender(&rootNode, identity, identity, identity, sdwProg.modelingLoc, sdwProg.modelingLoc, 0, NULL, NULL, 1, 
-		sdwTextureLocs, -1, -1);
-	shadowMapUnrender();
+	scenePreRenderLight(&lightNodeOne);
+	scenePreRenderLight(&lightNodeTwo);
+
 	/* Finish preparing the shadow maps, restore the viewport, and begin to 
 	render the scene. */
 	glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
@@ -768,7 +761,7 @@ int main(void) {
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
-    glClearColor(0.0, 0.0, 0.4, 1.0);
+    glClearColor(0.0, 0.0, 0.0, 1.0);
 	
     if (initializeShaderProgram() != 0)
     	return 4;

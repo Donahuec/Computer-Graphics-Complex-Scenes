@@ -10,6 +10,7 @@ Program implementing scene graph
 #define sceneLIGHT 			3
 #define sceneLOD 			4
 #define sceneSWITCH         5
+#define sceneSTATE			6
 
 #define sceneCASTSHADOWS 0
 #define sceneNOSHADOWS 1
@@ -42,10 +43,14 @@ struct sceneNode {
 
 	// Light node
 	GLuint hasShadows;
+	sceneNode *rootNode;
 	lightLight *light;
 	GLint lightPosition, lightColor, lightAtten, lightDir, lightCos;
 	shadowMap *sdwMap;
+	shadowProgram *sdwProg;
 	GLint viewingSdw, textureUnit, textureSdw;
+	GLdouble near;
+	GLdouble far;
 
 	// LOD node
 	GLint *ranges, rangeDim;
@@ -124,12 +129,18 @@ int sceneInitializeCamera(sceneNode *node, GLuint unifDim, GLdouble rotation[3][
 
 /* Initializes a light node. The user must remember to call sceneDestroy or 
 sceneDestroyRecursively when finished. Returns 0 if no error occurred. */
-int sceneInitializeLight(sceneNode *node, GLuint unifDim, lightLight *light, sceneNode *firstChild, sceneNode *nextSibling){
+int sceneInitializeLight(sceneNode *node, GLuint unifDim, lightLight *light, 
+		sceneNode *firstChild, sceneNode *nextSibling, sceneNode *rootNode,
+		shadowProgram *sdwProg, GLdouble far, GLdouble near){
 	node->nodeType = sceneLIGHT;
 	if (sceneInitializeDefaults(node, unifDim, firstChild, nextSibling) != 0)
 		return 1;
 	node->light = light;
 	node->hasShadows  = sceneCASTSHADOWS;
+	node->far = far;
+	node->near = near;
+	node->rootNode = rootNode;
+	node->sdwProg = sdwProg;
 	return 0;
 }
 
@@ -241,6 +252,16 @@ void sceneSetCamera(sceneNode *node, camCamera *cam) {
 	node->cam = cam;
 }
 
+/* Sets shadow map's near plane */
+void sceneSetNear(sceneNode *node, GLdouble near){
+	node->near = near;
+}
+
+/* Sets shadow map's far plane */
+void sceneSetFar(sceneNode *node, GLdouble far){
+	node->far = far;
+}
+
 /* Sets up the OpenGL locations for light Nodes */
 void sceneSetLightLocations(sceneNode *node, GLint lightPos, GLint lightColor, 
 	GLint lightAtten, GLint lightDir, GLint lightCos){
@@ -283,6 +304,11 @@ void sceneSetShadowMap(sceneNode *node, shadowMap *sdwMap) {
 	node->sdwMap = sdwMap;
 }
 
+/* Sets the shadowProgram of a light Node */
+void sceneSetShadowProgram(sceneNode *node, shadowProgram *sdwProg) {
+	node->sdwProg = sdwProg;
+}
+
 /* Sets the scene's mesh. */
 void sceneSetMesh(sceneNode *node, meshGLMesh *mesh) {
 	node->meshGL = mesh;
@@ -296,6 +322,11 @@ void sceneSetFirstChild(sceneNode *node, sceneNode *child) {
 /* Sets the node's next sibling. */
 void sceneSetNextSibling(sceneNode *node, sceneNode *sibling) {
 	node->nextSibling = sibling;
+}
+
+/* Sets the node that shadowing starts at. */
+void sceneSetRoot(sceneNode *node, sceneNode *rootNode){
+	node->rootNode = rootNode;
 }
 
 /* Adds a sibling to the given node. The sibling shows up as the youngest of 
@@ -416,39 +447,16 @@ void sceneSetUniforms(sceneNode *node, GLuint unifNum, GLuint unifDims[], GLint 
 	}
 }
 
-void sceneRenderCamera(sceneNode *node, GLint modelingLoc, GLint projLoc,
-		GLuint unifNum, GLuint unifDims[], GLint unifLocs[], 
-		GLdouble m[4][4], GLdouble projection[4][4], GLdouble invCam[4][4], 
-		GLint camPosLoc){
-	GLfloat viewing[4][4], vec[3];
-	GLdouble camInv[4][4], proj[4][4], projCamInv[4][4];
-	mat44InverseIsometry(node->cam->rotation, node->cam->translation, camInv);
-	if(node->cam->projectionType==camORTHOGRAPHIC){
-		mat44Orthographic(node->cam->projection[camPROJL], node->cam->projection[camPROJR],
-			node->cam->projection[camPROJB], node->cam->projection[camPROJT], 
-			node->cam->projection[camPROJF], node->cam->projection[camPROJN], proj);
-	} else {
-		mat44Perspective(node->cam->projection[camPROJL], node->cam->projection[camPROJR],
-	 		node->cam->projection[camPROJB], node->cam->projection[camPROJT], 
-	 		node->cam->projection[camPROJF], node->cam->projection[camPROJN], proj);
-	}
-	mat444Multiply(proj, camInv, projCamInv);
-	mat44Copy(projCamInv, projection);
+void sceneRenderCamera(sceneNode *node, GLdouble m[4][4], 
+		GLdouble projCamInv[4][4], GLdouble camInv[4][4], GLint camPosLoc){
+	GLfloat vec[3];
+	camRenderScene(node->cam, camInv, projCamInv);
 	mat44Disect(projCamInv, node->rotation, node->translation);
-	mat44Identity(m);
-	mat44Copy(camInv, invCam);
 	vecOpenGL(3, node->cam->translation, vec);
 	glUniform3fv(camPosLoc, 1, vec);
 }
 
-void sceneRenderLight(sceneNode *node, GLdouble parent[4][4], 
-		GLdouble parentProj[4][4], GLdouble parentCam[4][4], GLint modelingLoc,
-		GLint projLoc, GLuint unifNum, GLuint unifDims[], 
-		GLint unifLocs[], GLdouble m[4][4], GLdouble projection[4][4], 
-		GLdouble eyeView[4][4]){
-	mat44Copy(parent, m);
-	mat44Copy(parentProj, projection);
-	mat44Copy(parentCam, eyeView);
+void sceneRenderLight(sceneNode *node){
 	lightRender(node->light, node->lightPosition, node->lightColor, 
 		node->lightAtten, node->lightDir, node->lightCos);
 	shadowRender(node->sdwMap, node->viewingSdw, units[node->textureUnit],
@@ -456,69 +464,17 @@ void sceneRenderLight(sceneNode *node, GLdouble parent[4][4],
 }
 
 void sceneRenderTransformation(sceneNode *node, GLdouble parent[4][4], 
-	GLdouble parentProj[4][4], GLdouble parentCam[4][4], GLint modelingLoc, GLint projLoc, 
-	GLuint unifNum, GLuint unifDims[], GLint unifLocs[], GLdouble m[4][4],
-	GLdouble projection[4][4], GLdouble eyeView[4][4]) {
+		GLdouble parentProj[4][4], GLint projLoc, GLdouble m[4][4], 
+		GLdouble projection[4][4]) {
 	GLfloat model[4][4], proj[4][4];
 	GLdouble mHold[4][4], projectionHold[4][4];
 
 	mat44Isometry(node->rotation, node->translation, mHold);
 	mat444Multiply(parent, mHold, m);
 	mat444Multiply(parentProj, mHold, projection);
-	mat44Copy(parentCam, eyeView);
 }
 
-void sceneRenderGeometry(sceneNode *node, GLdouble parent[4][4], 
-	GLdouble parentProj[4][4], GLdouble parentCam[4][4], GLint modelingLoc,
-	GLint projLoc, GLuint unifNum, GLuint unifDims[], GLint unifLocs[], 
-	GLuint index, GLint textureLocs[], GLdouble m[4][4], 
-	GLdouble projection[4][4], GLdouble eyeView[4][4], GLint distFromCam){
-	GLfloat model[4][4], proj[4][4], cam[4][4];
-	GLdouble mHold[4][4], projectionHold[4][4];
-	
-
-	mat44Disect(parent, node->rotation, node->translation);
-	mat44OpenGL(parent, model);
-	mat44Copy(parent, m);
-
-	mat44OpenGL(parentProj, proj);
-	mat44Copy(parentProj, projection);
-
-	mat44OpenGL(parentCam, cam);
-	mat44Copy(parentCam, eyeView);
-	
-	glUniformMatrix4fv(modelingLoc, 1, GL_FALSE, (GLfloat *)model);
-	glUniformMatrix4fv(projLoc, 1, GL_FALSE, (GLfloat *)proj);
-	glUniformMatrix4fv(distFromCam, 1, GL_FALSE, (GLfloat *)cam);
-
-	sceneRenderTextures(node, textureLocs);
-	meshGLRender(node->meshGL, index);
-	sceneUnrenderTextures(node, textureLocs);
-}
-
-void sceneRenderSwitch(sceneNode *node, GLdouble parent[4][4], 
-		GLdouble parentProj[4][4], GLdouble parentCam[4][4], GLint modelingLoc,
-		GLint projLoc, GLuint unifNum, GLuint unifDims[], GLint unifLocs[], 
-		GLdouble m[4][4], GLdouble projection[4][4], GLdouble eyeView[4][4]) {
-	mat44Disect(parent, node->rotation, node->translation);
-	mat44Copy(parent, m);
-	mat44Copy(parentProj, projection);
-	mat44Copy(parentCam, eyeView);
-	
-	sceneSetFirstChild(node, node->firstChildNodes[node->curSwitch]);
-}
-
-void sceneRenderLOD(sceneNode *node, GLdouble parent[4][4], 
-		GLdouble parentProj[4][4], GLdouble parentCam[4][4], GLint modelingLoc,
-		GLint projLoc, GLuint unifNum, GLuint unifDims[], GLint unifLocs[], 
-		GLdouble m[4][4], GLdouble projection[4][4], GLdouble eyeView[4][4]){
-	GLfloat model[4][4], proj[4][4];
-	GLdouble mHold[4][4], projectionHold[4][4];
-	mat44Disect(parent, node->rotation, node->translation);
-	mat44Copy(parent, m);
-	mat44Copy(parentProj, projection);
-	mat44Copy(parentCam, eyeView);
-
+void sceneRenderLOD(sceneNode *node, GLdouble parentCam[4][4]){
 	for(int i=0;i<node->rangeDim;i++){
 		if(-parentCam[2][3]<=node->ranges[i]){
 			sceneSetFirstChild(node, node->firstChildMeshes[i]);
@@ -530,6 +486,29 @@ void sceneRenderLOD(sceneNode *node, GLdouble parent[4][4],
 	}
 }
 
+void sceneRenderGeometry(sceneNode *node, GLdouble parent[4][4], 
+		GLdouble parentProj[4][4], GLdouble parentCam[4][4], GLint modelingLoc,
+		GLint projLoc, GLuint index, GLint textureLocs[], GLint camInvLoc){
+	GLfloat model[4][4], proj[4][4], cam[4][4];
+	
+	mat44OpenGL(parent, model);
+	mat44OpenGL(parentProj, proj);
+	mat44OpenGL(parentCam, cam);
+	
+	glUniformMatrix4fv(modelingLoc, 1, GL_FALSE, (GLfloat *)model);
+	glUniformMatrix4fv(projLoc, 1, GL_FALSE, (GLfloat *)proj);
+	glUniformMatrix4fv(camInvLoc, 1, GL_FALSE, (GLfloat *)cam);
+
+	sceneRenderTextures(node, textureLocs);
+	meshGLRender(node->meshGL, index);
+	sceneUnrenderTextures(node, textureLocs);
+}
+
+void sceneRenderSwitch(sceneNode *node) {
+	sceneSetFirstChild(node, node->firstChildNodes[node->curSwitch]);
+}
+
+
 /* Renders the node, its younger siblings, and their descendants. parent is the 
 modeling matrix at the parent of the node. If the node has no parent, then this 
 matrix is the 4x4 identity matrix. Loads the modeling transformation into 
@@ -538,49 +517,59 @@ uniform information is analogous, but sceneRender loads it, not meshGLRender. */
 void sceneRender(sceneNode *node, GLdouble parent[4][4], GLdouble parentProj[4][4], 
 		GLdouble parentCam[4][4], GLint modelingLoc, GLint projLoc, GLuint unifNum,
 		GLuint unifDims[], GLint unifLocs[], GLuint index, GLint textureLocs[],
-		GLint camPosLoc, GLint distFromCam) {
-	
+		GLint camPosLoc, GLint camInvLoc) {
 	GLdouble m[4][4], projection[4][4], invCam[4][4];
+	mat44Copy(parent, m);
+	mat44Copy(parentProj, projection);
+	mat44Copy(parentCam, invCam);
+
 	/* Set the other uniforms.*/
 	sceneSetUniforms(node, unifNum, unifDims, unifLocs);
-	/* Updated */
-	
 	
 	if (node->nodeType==sceneCAMERA){
-		sceneRenderCamera(node, modelingLoc, projLoc, unifNum, 
-			unifDims, unifLocs, m, projection, invCam, camPosLoc);
+		sceneRenderCamera(node, m, projection, invCam, camPosLoc);
+
 	} else if (node->nodeType==sceneLIGHT){
-		sceneRenderLight(node, parent, parentProj, parentCam, modelingLoc, 
-			projLoc, unifNum, unifDims, unifLocs, m, projection, invCam);
+		sceneRenderLight(node);
+
 	} else if (node->nodeType==sceneTRANSFORMATION){
-		sceneRenderTransformation(node, parent, parentProj, parentCam, 
-			modelingLoc, projLoc, unifNum, unifDims, unifLocs, m, projection, 
-			invCam);
+		sceneRenderTransformation(node, parent, parentProj, projLoc, m, 
+			projection);
+
 	} else if (node->nodeType==sceneLOD){
-		sceneRenderLOD(node, parent, parentProj, parentCam, modelingLoc, 
-			projLoc, unifNum, unifDims, unifLocs, m, projection, invCam);
+		sceneRenderLOD(node, parentCam);
+
 	}else if (node->nodeType==sceneSWITCH){
-		sceneRenderSwitch(node, parent, parentProj, parentCam, modelingLoc, 
-			projLoc, unifNum, unifDims, unifLocs, m, projection, invCam);
+		sceneRenderSwitch(node);
+
 	} else {
 		sceneRenderGeometry(node, parent, parentProj, parentCam, modelingLoc,
-		projLoc, unifNum, unifDims, unifLocs, index, textureLocs, m, projection, 
-		invCam, distFromCam);
+		projLoc, index, textureLocs, camInvLoc);
 	}
-	
+
+	/* Render the mesh, the children, and the younger siblings. */
 	if(node->nextSibling != NULL){
 		sceneRender(node->nextSibling, parent, parentProj, parentCam, 
 			modelingLoc, projLoc, unifNum, unifDims, unifLocs, index, 
-			textureLocs, camPosLoc, distFromCam);
+			textureLocs, camPosLoc, camInvLoc);
 	}
 	
-	/* Render the mesh, the children, and the younger siblings. */
 	if(node->firstChild != NULL){
 		sceneRender(node->firstChild, m, projection, invCam, modelingLoc, 
 			projLoc, unifNum, unifDims, unifLocs, index, textureLocs, 
-			camPosLoc, distFromCam);
+			camPosLoc, camInvLoc);
 	}
 	
 }
 
+void scenePreRenderLight(sceneNode *node){
+	GLint sdwTextureLocs[1] = {-1};
+	GLdouble identity[4][4];
+	mat44Identity(identity);
+
+	shadowMapRender(node->sdwMap, node->sdwProg, node->light, node->far, node->near);
+	sceneRender(node->rootNode, identity, identity, identity, node->sdwProg->modelingLoc, 
+		node->sdwProg->modelingLoc, 0, NULL, NULL, 1, sdwTextureLocs, -1, -1);
+	shadowMapUnrender();
+}
 
