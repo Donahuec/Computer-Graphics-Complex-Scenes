@@ -12,8 +12,15 @@ Program implementing scene graph
 #define sceneSWITCH         5
 #define sceneSTATE			6
 
-#define sceneCASTSHADOWS 0
-#define sceneNOSHADOWS 1
+#define sceneSTATETEX		0
+#define sceneSTATESHINE		1
+#define sceneSTATEON		2
+
+#define statusOFF			0
+#define statusON			1
+
+#define sceneCASTSHADOWS 	0
+#define sceneNOSHADOWS 		1
 
 GLenum units[9]={GL_TEXTURE0, GL_TEXTURE1, GL_TEXTURE2, GL_TEXTURE3, GL_TEXTURE4, 
 				 GL_TEXTURE5, GL_TEXTURE6, GL_TEXTURE7, GL_TEXTURE8};
@@ -60,6 +67,15 @@ struct sceneNode {
 	sceneNode **firstChildNodes;
 	GLuint numSwitches;
 	GLuint curSwitch;
+
+	//State node
+	GLint stateType;
+	GLfloat *colors;
+	GLfloat *shininess;
+	texTexture **states;
+	GLuint stateNum;
+	GLint curState;
+	GLint status;
 };
 
 /* Initialized a few defaults standard across all nodes */
@@ -158,7 +174,7 @@ int sceneInitializeLOD(sceneNode *node, GLuint unifDim, GLint rangeDim,
 }
 
 /* Initializes a switch node. This type of Node chooses which child to render based off of its current
-switch. The default swithc is 0 */
+switch. The default switch is 0 */
 int sceneInitializeSwitch(sceneNode *node, GLuint unifDim, GLuint numSwitches, 
 		sceneNode *firstChildNodes[], sceneNode *nextSibling){
 	node->nodeType = sceneSWITCH;
@@ -167,6 +183,25 @@ int sceneInitializeSwitch(sceneNode *node, GLuint unifDim, GLuint numSwitches,
 	node->numSwitches = numSwitches;
 	node->curSwitch = 0;
 	node->firstChildNodes = (sceneNode **)malloc(numSwitches * sizeof(sceneNode *));
+	return 0;
+}
+
+/* Initializes a state node. This type of Node chooses what state information to send to its 
+child based off of its current state.*/
+int sceneInitializeState(sceneNode *node, GLuint unifDim, GLint stateType, 
+		GLuint stateNum, GLuint startState, sceneNode *firstChild, 
+		sceneNode *nextSibling){
+	node->nodeType = sceneSTATE;
+	node->stateType = stateType;
+	if (sceneInitializeDefaults(node, unifDim, firstChild, nextSibling) != 0)
+		return 1;
+	node->stateNum = stateNum;
+	node->curState = startState;
+	if (node->stateType == sceneSTATETEX){
+		node->states = (texTexture **)malloc(stateNum * sizeof(texTexture *));
+	} else if (node->stateType == sceneSTATESHINE){
+		node->shininess = (GLfloat *)malloc(stateNum * sizeof(GLfloat));
+	} 
 	return 0;
 }
 
@@ -417,7 +452,33 @@ void sceneCycleSwitch(sceneNode *node) {
 	node->curSwitch += 1;
 	if (node->curSwitch == node->numSwitches) node->curSwitch = 0;
 }
+/* Sets the texture states for a state node */
+void sceneSetTextureStates(sceneNode *node, texTexture *states[]){
+	for (int i=0;i<node->stateNum;i++){
+		node->states[i] = states[i];
+	}
+}
+/* updates one texture state for a state node */
+void sceneSetOneTextureState(sceneNode *node, GLint index, texTexture *state){
+	node->states[index] = state;
+}
 
+/* Sets the shininess states for a state node */
+void sceneSetShininessStates(sceneNode *node, GLfloat *shinies){
+	for (int i=0;i<node->stateNum*3.0;i++){
+		node->shininess[i] = shinies[i];
+	}
+}
+/* Updates one shininess state for a state node */
+void sceneSetOneShininessState(sceneNode *node, GLint index, GLfloat shinies[3]){
+	node->shininess[index] = shinies[0];
+	node->shininess[index+1] = shinies[1];
+	node->shininess[index+2] = shinies[2];
+}
+/* Turns state node on/off, which the state node will send to its children, telling them if they should render */
+void sceneSetStatus(sceneNode *node, GLint status){
+	node->status = status;
+}
 void sceneRenderTextures(sceneNode *node, GLint textureLocs[]){
 	for(int k=0;k<node->texNum; k++){
 			texRender(node->tex[k], units[k], k, textureLocs[k]);
