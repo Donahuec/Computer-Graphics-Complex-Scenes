@@ -376,8 +376,6 @@ void sceneSetSwitch(sceneNode *node, GLuint switchIndex) {
 void sceneCycleSwitch(sceneNode *node) {
 	node->curSwitch += 1;
 	if (node->curSwitch == node->numSwitches) node->curSwitch = 0;
-	printf("%d\n", node->curSwitch);
-	fflush(stdout);
 }
 
 void sceneRenderTextures(sceneNode *node, GLint textureLocs[]){
