@@ -26,7 +26,7 @@ double getTime(void) {
 #include "530vector.c"
 #include "580mesh.c"
 #include "1000matrix.c"
-#include "520camera.c"
+#include "1000camera.c"
 #include "540texture.c"
 #include "560light.c"
 #include "590shadow.c"

@@ -62,6 +62,7 @@ struct sceneNode {
 	GLuint curSwitch;
 };
 
+/* Initialized a few defaults standard across all nodes */
 int sceneInitializeDefaults(sceneNode *node, GLuint unifDim,
 		sceneNode *firstChild, sceneNode *nextSibling) {
     node->unif = (GLdouble *)malloc(unifDim * sizeof(GLdouble));
@@ -144,6 +145,7 @@ int sceneInitializeLight(sceneNode *node, GLuint unifDim, lightLight *light,
 	return 0;
 }
 
+/* Initializes LOD nodes. ranges are the distances from the camera at with the node should switch */
 int sceneInitializeLOD(sceneNode *node, GLuint unifDim, GLint rangeDim, 
 		GLint *ranges, sceneNode *firstChildMeshes[], sceneNode *nextSibling){
 	node->nodeType = sceneLOD;
@@ -155,6 +157,8 @@ int sceneInitializeLOD(sceneNode *node, GLuint unifDim, GLint rangeDim,
 	return 0;
 }
 
+/* Initializes a switch node. This type of Node chooses which child to render based off of its current
+switch. The default swithc is 0 */
 int sceneInitializeSwitch(sceneNode *node, GLuint unifDim, GLuint numSwitches, 
 		sceneNode *firstChildNodes[], sceneNode *nextSibling){
 	node->nodeType = sceneSWITCH;
@@ -279,7 +283,6 @@ void sceneSetLightLocations(sceneNode *node, GLint lightPos, GLint lightColor,
 
 	if (lightCos != -1)
 		node->lightCos = lightCos;
-
 }
 
 /* Sets the shadowMap of a light Node */
@@ -371,6 +374,7 @@ void sceneRemoveChild(sceneNode *node, sceneNode *child) {
 		sceneRemoveSibling(node->firstChild, child);
 }
 
+/* Sets all of the children of a LOD node. The array must be the same size as the Node's ranngeDim */
 void sceneSetChildArray(sceneNode *node, sceneNode *firstChildMeshes[]){
 	int range;
 	
@@ -384,31 +388,34 @@ void sceneSetChildArray(sceneNode *node, sceneNode *firstChildMeshes[]){
 	}	
 }
 
+/* Sets one LOD child at index  */
 void sceneSetOneChild(sceneNode *node, int index, sceneNode *child) {
 	node->firstChildMeshes[index] = child;
 }
 
+/* Sets all children of a switch node. the array must be of length numSwitches  */
 void sceneSetChildArraySwitch(sceneNode *node, sceneNode *firstChildNodes[]){
 	for(int i = 0; i < node->numSwitches; i += 1){
 		node->firstChildNodes[i] = firstChildNodes[i];
 	}	
 }
 
+/* sets all of the ranges of a LOD node. ranges must equal rangeDim */
 void sceneSetRanges(sceneNode *node, GLint *ranges){
 	for (int i=0;i<node->rangeDim;i++){
 		node->ranges[i] = ranges[i];
 	}
 }
 
+/* Sets the current switch of a switch node based off of the given index */
 void sceneSetSwitch(sceneNode *node, GLuint switchIndex) {
 	node->curSwitch = switchIndex;
 } 
 
+/* Cycles to the next child. If it is the last child, returns to the beginning */
 void sceneCycleSwitch(sceneNode *node) {
 	node->curSwitch += 1;
 	if (node->curSwitch == node->numSwitches) node->curSwitch = 0;
-	printf("%d\n", node->curSwitch);
-	fflush(stdout);
 }
 
 void sceneRenderTextures(sceneNode *node, GLint textureLocs[]){
@@ -423,6 +430,7 @@ void sceneUnrenderTextures(sceneNode *node, GLint textureLocs[]){
 	}
 }
 
+/* Chooses which opengl function to use to set usniforms based off of the number of uniforms */
 void sceneSetUniforms(sceneNode *node, GLuint unifNum, GLuint unifDims[], GLint unifLocs[]){
 	int unifCount=0;
 	for(int i=0; i<unifNum; i++){
@@ -447,6 +455,7 @@ void sceneSetUniforms(sceneNode *node, GLuint unifNum, GLuint unifDims[], GLint 
 	}
 }
 
+/* Render a camera Node */
 void sceneRenderCamera(sceneNode *node, GLdouble m[4][4], 
 		GLdouble projCamInv[4][4], GLdouble camInv[4][4], GLint camPosLoc){
 	GLfloat vec[3];
@@ -456,24 +465,17 @@ void sceneRenderCamera(sceneNode *node, GLdouble m[4][4],
 	glUniform3fv(camPosLoc, 1, vec);
 }
 
+/* Render a light node. Renders shadows if the light node has shadows */
 void sceneRenderLight(sceneNode *node){
 	lightRender(node->light, node->lightPosition, node->lightColor, 
 		node->lightAtten, node->lightDir, node->lightCos);
-	shadowRender(node->sdwMap, node->viewingSdw, units[node->textureUnit],
-			 	node->textureUnit, node->textureSdw);
+	if (node->hasShadows == sceneCASTSHADOWS) {
+		shadowRender(node->sdwMap, node->viewingSdw, units[node->textureUnit],
+				 	node->textureUnit, node->textureSdw);
+	}
 }
 
-void sceneRenderTransformation(sceneNode *node, GLdouble parent[4][4], 
-		GLdouble parentProj[4][4], GLint projLoc, GLdouble m[4][4], 
-		GLdouble projection[4][4]) {
-	GLfloat model[4][4], proj[4][4];
-	GLdouble mHold[4][4], projectionHold[4][4];
-
-	mat44Isometry(node->rotation, node->translation, mHold);
-	mat444Multiply(parent, mHold, m);
-	mat444Multiply(parentProj, mHold, projection);
-}
-
+/* Render a lod node */
 void sceneRenderLOD(sceneNode *node, GLdouble parentCam[4][4]){
 	for(int i=0;i<node->rangeDim;i++){
 		if(-parentCam[2][3]<=node->ranges[i]){
@@ -486,6 +488,24 @@ void sceneRenderLOD(sceneNode *node, GLdouble parentCam[4][4]){
 	}
 }
 
+/* Choose which child a switch node should render */
+void sceneRenderSwitch(sceneNode *node) {
+	sceneSetFirstChild(node, node->firstChildNodes[node->curSwitch]);
+}
+
+/* Render a transformation node, passing on its transformation to its child */
+void sceneRenderTransformation(sceneNode *node, GLdouble parent[4][4], 
+		GLdouble parentProj[4][4], GLint projLoc, GLdouble m[4][4], 
+		GLdouble projection[4][4]) {
+	GLfloat model[4][4], proj[4][4];
+	GLdouble mHold[4][4], projectionHold[4][4];
+
+	mat44Isometry(node->rotation, node->translation, mHold);
+	mat444Multiply(parent, mHold, m);
+	mat444Multiply(parentProj, mHold, projection);
+}
+
+/* Render a Geometry Node */
 void sceneRenderGeometry(sceneNode *node, GLdouble parent[4][4], 
 		GLdouble parentProj[4][4], GLdouble parentCam[4][4], GLint modelingLoc,
 		GLint projLoc, GLuint index, GLint textureLocs[], GLint camInvLoc){
@@ -502,10 +522,6 @@ void sceneRenderGeometry(sceneNode *node, GLdouble parent[4][4],
 	sceneRenderTextures(node, textureLocs);
 	meshGLRender(node->meshGL, index);
 	sceneUnrenderTextures(node, textureLocs);
-}
-
-void sceneRenderSwitch(sceneNode *node) {
-	sceneSetFirstChild(node, node->firstChildNodes[node->curSwitch]);
 }
 
 

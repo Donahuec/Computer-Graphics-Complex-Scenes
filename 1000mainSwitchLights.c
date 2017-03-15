@@ -26,11 +26,11 @@ double getTime(void) {
 #include "530vector.c"
 #include "580mesh.c"
 #include "1000matrix.c"
-#include "520camera.c"
+#include "1000camera.c"
 #include "540texture.c"
 #include "560light.c"
 #include "590shadow.c"
-#include "1003scene.c"
+#include "1000scene.c"
 #include "1000skybox.c"
 
 camCamera cam;
@@ -384,22 +384,23 @@ int initializeScene(void) {
 		return 33;
 	if (sceneInitializeGeometry(&nodeH, 3, 1, &meshH, &nodeV, NULL) != 0)
 		return 34;
-	if (sceneInitializeLight(&lightNA, 3, &lightA, NULL, NULL) != 0)
+	if (sceneInitializeLight(&lightNA, 3, &lightA, NULL, NULL, &nodeH, &sdwProg, -100.0, -1.0) != 0)
 		return 35;
-	if (sceneInitializeLight(&lightNB, 3, &lightB, NULL, NULL) != 0)
+	if (sceneInitializeLight(&lightNB, 3, &lightB, NULL, NULL, &nodeH, &sdwProg, -100.0, -1.0) != 0)
 		return 35;
-	if (sceneInitializeLight(&lightNC, 3, &lightC, NULL, NULL) != 0)
+	if (sceneInitializeLight(&lightNC, 3, &lightC, NULL, NULL, &nodeH, &sdwProg, -100.0, -1.0) != 0)
 		return 35;
-	if (sceneInitializeLight(&lightND, 3, &lightD, NULL, NULL) != 0)
+	if (sceneInitializeLight(&lightND, 3, &lightD, NULL, NULL, &nodeH, &sdwProg, -100.0, -1.0) != 0)
 		return 35;
-	if (sceneInitializeLight(&lightNE, 3, &lightE, NULL, NULL) != 0)
+	if (sceneInitializeLight(&lightNE, 3, &lightE, NULL, NULL, &nodeH, &sdwProg, -100.0, -1.0) != 0)
 		return 35;
-	if (sceneInitializeLight(&lightNF, 3, &lightF, NULL, NULL) != 0)
+	if (sceneInitializeLight(&lightNF, 3, &lightF, NULL, NULL, &nodeH, &sdwProg, -100.0, -1.0) != 0)
 		return 35;
 	if (sceneInitializeSwitch(&switchNodeT, 3, 12, NULL, NULL) != 0)
 		return 37;
 	if (sceneInitializeCamera(&rootNode, 3, NULL, NULL, &nodeH, &switchNodeT) != 0)
 		return 38; 
+
 
 	GLdouble unif[3] = {0.0, 0.0, 0.0};
 	sceneSetUniform(&nodeH, unif);
@@ -639,10 +640,8 @@ void render(void) {
 	uniforms and textures. */
 	GLint sdwTextureLocs[1] = {-1};
 	
-	shadowMapRender(&sdwMapA, &sdwProg, &lightA, -100.0, -1.0);
-	sceneRender(&nodeH, identity, identity, identity, sdwProg.modelingLoc, sdwProg.modelingLoc, 0, NULL, NULL, 1, 
-		sdwTextureLocs, -1, -1);
-	shadowMapUnrender();
+	/*All lights are in the same position, only need to render one*/
+	scenePreRenderLight(&lightNA);
 	
 	/* Finish preparing the shadow maps, restore the viewport, and begin to 
 	render the scene. */
