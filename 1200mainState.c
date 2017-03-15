@@ -34,9 +34,9 @@ double getTime(void) {
 #include "1000skybox.c"
 
 camCamera cam;
-texTexture texH, texV, texW, texT, texL
-	texWA, texTA, texLA
-	texWW, texTW, texLW; 
+texTexture texH, texV, texW, texT, texL,
+	texWA, texHA, texLA,
+	texWW, texHW, texLW; 
 meshGLMesh meshH, meshV, meshW, meshT, meshL; 
 /* Updated */
 sceneNode nodeH, nodeV, nodeW, nodeT, nodeL,
@@ -50,7 +50,8 @@ sceneNode nodeH, nodeV, nodeW, nodeT, nodeL,
 	transformationNodeT8, transformationNodeL8,
 	transformationNodeT9, transformationNodeL9,
 	transformationNodeT10, transformationNodeL10,
-	lightNodeOne, lightNodeTwo, stateNode, textureNode, shininessNode, nodeBack;
+	lightNodeOne, lightNodeTwo, stateNode, textureNodeWater, textureNodeLand, textureNodeTree,
+	shininessNode, nodeBack;
 /* We need just one shadow program, because all of our meshes have the same 
 attribute structure. */
 shadowProgram sdwProg;
@@ -373,37 +374,37 @@ int initializeScene(void) {
 	/*Initialize scene nodes*/
 	if (sceneInitializeGeometry(&nodeW, 3, 1, &meshW, NULL, NULL) != 0)
 		return 22;
+	if(sceneInitializeState(&textureNodeWater, 3, 0, 3, 0, &nodeW, NULL))
+		return 41;
 	if (sceneInitializeGeometry(&nodeL, 3, 1, &meshL, NULL, NULL) != 0)
 		return 23;
-	if (sceneInitializeTransformation(&transformationNodeL10, 3, NULL, NULL, &nodeL, NULL) != 0)
+	if(sceneInitializeState(&textureNodeTree, 3, 0, 3, 0, &nodeL, NULL))
+		return 41;
+	if (sceneInitializeTransformation(&transformationNodeL10, 3, NULL, NULL, &textureNodeTree, NULL) != 0)
 		return 27;
-	if (sceneInitializeTransformation(&transformationNodeL9, 3, NULL, NULL, &nodeL, &transformationNodeL10) != 0)
+	if (sceneInitializeTransformation(&transformationNodeL9, 3, NULL, NULL, &textureNodeTree, &transformationNodeL10) != 0)
 		return 28;
-	if (sceneInitializeTransformation(&transformationNodeL8, 3, NULL, NULL, &nodeL, &transformationNodeL9) != 0)
+	if (sceneInitializeTransformation(&transformationNodeL8, 3, NULL, NULL, &textureNodeTree, &transformationNodeL9) != 0)
 		return 29;
-	if (sceneInitializeTransformation(&transformationNodeL7, 3, NULL, NULL, &nodeL, &transformationNodeL8) != 0)
+	if (sceneInitializeTransformation(&transformationNodeL7, 3, NULL, NULL, &textureNodeTree, &transformationNodeL8) != 0)
 		return 30;
-	if (sceneInitializeTransformation(&transformationNodeL6, 3, NULL, NULL, &nodeL, &transformationNodeL7) != 0)
+	if (sceneInitializeTransformation(&transformationNodeL6, 3, NULL, NULL, &textureNodeTree, &transformationNodeL7) != 0)
 		return 31;
-	if (sceneInitializeTransformation(&transformationNodeL5, 3, NULL, NULL, &nodeL, &transformationNodeL6) != 0)
+	if (sceneInitializeTransformation(&transformationNodeL5, 3, NULL, NULL, &textureNodeTree, &transformationNodeL6) != 0)
 		return 32;
-	if (sceneInitializeTransformation(&transformationNodeL4, 3, NULL, NULL, &nodeL, &transformationNodeL5) != 0)
+	if (sceneInitializeTransformation(&transformationNodeL4, 3, NULL, NULL, &textureNodeTree, &transformationNodeL5) != 0)
 		return 33;
-	if (sceneInitializeTransformation(&transformationNodeL3, 3, NULL, NULL, &nodeL, &transformationNodeL4) != 0)
+	if (sceneInitializeTransformation(&transformationNodeL3, 3, NULL, NULL, &textureNodeTree, &transformationNodeL4) != 0)
 		return 34;
-	if (sceneInitializeTransformation(&transformationNodeL2, 3, NULL, NULL, &nodeL, &transformationNodeL3) != 0)
+	if (sceneInitializeTransformation(&transformationNodeL2, 3, NULL, NULL, &textureNodeTree, &transformationNodeL3) != 0)
 		return 35;
-	if (sceneInitializeTransformation(&transformationNodeL, 3, NULL, NULL, &nodeL, &transformationNodeL2) != 0)
+	if (sceneInitializeTransformation(&transformationNodeL, 3, NULL, NULL, &textureNodeTree, &transformationNodeL2) != 0)
 		return 36;
 	if (sceneInitializeGeometry(&nodeT, 3, 1, &meshT, &transformationNodeL, NULL) != 0)
 		return 37;
 	if(sceneInitializeState(&stateNode, 3, 2, 2, 0, &nodeT, NULL))
 		return 41;
-	if(sceneInitializeState(&textureNode, 3, 0, 3, 0, NULL, &stateNode))
-		return 41;
-	if(sceneInitializeState(&shininessNode, 3, 1, 3, 0, NULL, &textureNode))
-		return 41;
-	if (sceneInitializeTransformation(&transformationNodeT10, 3, NULL, NULL, &stateNode, &nodeW) != 0)
+	if (sceneInitializeTransformation(&transformationNodeT10, 3, NULL, NULL, &stateNode, &textureNodeWater) != 0)
 		return 42; 
 	if (sceneInitializeTransformation(&transformationNodeT9, 3, NULL, NULL, &stateNode, &transformationNodeT10) != 0)
 		return 43; 
@@ -427,11 +428,13 @@ int initializeScene(void) {
 		return 52;
 	if (sceneInitializeGeometry(&nodeH, 3, 1, &meshH, &nodeV, NULL) != 0)
 		return 53;
-	if (sceneInitializeLight(&lightNodeTwo, 3, &lightB, NULL, NULL, &nodeH, &sdwProg, -100.0, -1.0) != 0)
+	if(sceneInitializeState(&textureNodeLand, 3, 0, 3, 0, &nodeH, NULL))
+		return 41;
+	if (sceneInitializeLight(&lightNodeTwo, 3, &lightB, NULL, NULL, &textureNodeLand, &sdwProg, -100.0, -1.0) != 0)
 		return 54;
-	if (sceneInitializeLight(&lightNodeOne, 3, &lightA, NULL, &lightNodeTwo, &nodeH, &sdwProg, -100.0, -1.0) != 0)
+	if (sceneInitializeLight(&lightNodeOne, 3, &lightA, NULL, &lightNodeTwo, &textureNodeLand, &sdwProg, -100.0, -1.0) != 0)
 		return 55;
-	if (sceneInitializeCamera(&rootNode, 3, NULL, NULL, &nodeH, &lightNodeOne) != 0)
+	if (sceneInitializeCamera(&rootNode, 3, NULL, NULL, &textureNodeLand, &lightNodeOne) != 0)
 		return 56; 
 
 	GLdouble unif[3] = {0.0, 0.0, 0.0};
@@ -458,10 +461,21 @@ int initializeScene(void) {
 	sceneSetTexture(&nodeT, &tex);
 	tex = &texL;
 	sceneSetTexture(&nodeL, &tex);
-	tex[0] = texW;
-	tex[1] = texWA;
-	tex[2] = texWW;
-	sceneSetTex
+
+	texTexture *states[3];
+	states[0] = &texW;
+	states[1] = &texWA;
+	states[2] = &texWW;
+	sceneSetTextureStates(&textureNodeWater, states);
+	states[0] = &texL;
+	states[1] = &texLA;
+	states[2] = &texLW;
+	sceneSetTextureStates(&textureNodeTree, states);
+	states[0] = &texH;
+	states[1] = &texHA;
+	states[2] = &texHW;
+	sceneSetTextureStates(&textureNodeLand, states);
+
 	GLdouble transl[3] = {45.0, 135.0, 35.0};
 	sceneSetTranslation(&transformationNodeT, transl);
 	
@@ -528,11 +542,7 @@ void destroyScene(void) {
 	meshGLDestroy(&meshV);
 	meshGLDestroy(&meshW);
 	meshGLDestroy(&meshT);
-	// meshGLDestroy(&meshTMed);
-	// meshGLDestroy(&meshTFar);
 	meshGLDestroy(&meshL);
-	// meshGLDestroy(&meshLMed);
-	// meshGLDestroy(&meshLFar);
 	sceneDestroyRecursively(&rootNode);
 }
 
@@ -777,6 +787,17 @@ int main(void) {
 
     	if (floor(newTime) - floor(oldTime) >= 1.0){
 			fprintf(stderr, "main: %f frames/sec\n", 1.0 / (newTime - oldTime));
+			printf("%d\n", stateNode.status);
+			if (textureNodeLand.curState<2){
+				printf("%d %d %d\n", textureNodeLand.curState, textureNodeTree.curState, textureNodeWater.curState);
+				textureNodeLand.curState++;
+				textureNodeTree.curState++;
+				textureNodeWater.curState++;
+			} else {
+				textureNodeLand.curState = 0;
+				textureNodeTree.curState = 0;
+				textureNodeWater.curState = 0;
+			}
 			if (check<9){
 				sceneSetStatus(&stateNode, !stateNode.status);
 				check++;

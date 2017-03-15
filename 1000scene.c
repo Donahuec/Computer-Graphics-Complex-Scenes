@@ -554,6 +554,15 @@ void sceneRenderSwitch(sceneNode *node) {
 	sceneSetFirstChild(node, node->firstChildNodes[node->curSwitch]);
 }
 
+/* Choose which state to pass onto child */
+void sceneRenderState(sceneNode *node) {
+	if(node->stateType == sceneSTATETEX){
+		node->firstChild->tex[0] = node->states[node->curState];
+	} else if(node->stateType == sceneSTATESHINE){
+		node->unif[0] = node->shininess[node->curState];
+	} 
+}
+
 /* Render a transformation node, passing on its transformation to its child */
 void sceneRenderTransformation(sceneNode *node, GLdouble parent[4][4], 
 		GLdouble parentProj[4][4], GLint projLoc, GLdouble m[4][4], 
@@ -600,9 +609,6 @@ void sceneRender(sceneNode *node, GLdouble parent[4][4], GLdouble parentProj[4][
 	mat44Copy(parentProj, projection);
 	mat44Copy(parentCam, invCam);
 
-	/* Set the other uniforms.*/
-	sceneSetUniforms(node, unifNum, unifDims, unifLocs);
-	
 	if (node->nodeType==sceneCAMERA){
 		sceneRenderCamera(node, m, projection, invCam, camPosLoc);
 
@@ -619,7 +625,11 @@ void sceneRender(sceneNode *node, GLdouble parent[4][4], GLdouble parentProj[4][
 	}else if (node->nodeType==sceneSWITCH){
 		sceneRenderSwitch(node);
 
+	} else if (node->nodeType==sceneSTATE){
+		sceneRenderState(node);
 	} else {
+		/* Set the other uniforms.*/
+		sceneSetUniforms(node, unifNum, unifDims, unifLocs);
 		sceneRenderGeometry(node, parent, parentProj, parentCam, modelingLoc,
 		projLoc, index, textureLocs, camInvLoc);
 	}
@@ -630,11 +640,12 @@ void sceneRender(sceneNode *node, GLdouble parent[4][4], GLdouble parentProj[4][
 			modelingLoc, projLoc, unifNum, unifDims, unifLocs, index, 
 			textureLocs, camPosLoc, camInvLoc);
 	}
-	
-	if(node->firstChild != NULL){
-		sceneRender(node->firstChild, m, projection, invCam, modelingLoc, 
-			projLoc, unifNum, unifDims, unifLocs, index, textureLocs, 
-			camPosLoc, camInvLoc);
+	if(node->nodeType!=sceneSTATE || node->stateType != sceneSTATEON || node->status != statusOFF){
+		if(node->firstChild != NULL){
+			sceneRender(node->firstChild, m, projection, invCam, modelingLoc, 
+				projLoc, unifNum, unifDims, unifLocs, index, textureLocs, 
+				camPosLoc, camInvLoc);
+		}
 	}
 	
 }
